@@ -22,6 +22,7 @@ class InterpTypes(Enum):
     NATCUBIC_ZERO_RATES = 9
     PCHIP_ZERO_RATES = 10
     PCHIP_LOG_DISCOUNT = 11
+    LINEAR_ONFWD_RATES = 21
 
 
 # LINEAR_SWAP_RATES = 3
@@ -276,6 +277,36 @@ class Interpolator():
     #            self._interp_fn = interp1d(self.times, log_dfs,
     #                                      fill_value="extrapolate")
 
+        elif self._interp_type == InterpTypes.LINEAR_ONFWD_RATES:
+            onf_times = []
+            onf_rates = []
+            prev_df = 1.0
+            for t, df in zip(self._times, self._dfs):
+                if t == 0.0:
+                    continue
+                if len(onf_times) == 0:
+                    onfr = -np.log(df)/t
+                    onf_times = [0.0, t]
+                    onf_rates = [onfr, onfr]
+                else:
+                    prev_t = onf_times[-1]
+                    prev_r = onf_rates[-1]
+                    fwd_df = df/prev_df
+                    onf_int = -np.log(fwd_df)
+                    r = 2*onf_int/(t-prev_t) - prev_r
+
+                    onf_times.append(t)
+                    onf_rates.append(r)
+
+                prev_df = df
+
+            if len(onf_times) == 0:
+                self._interp_fn = InterpolatedUnivariateSpline(
+                    [0.0, 0.1], [0.0, 0.0], k=1, ext=3)
+            else:
+                self._interp_fn = InterpolatedUnivariateSpline(
+                    onf_times, onf_rates, k=1, ext=3)
+
     ###########################################################################
 
     def interpolate(self,
@@ -337,6 +368,28 @@ class Interpolator():
         #
         #            out = np.exp(self._interp_fn(tvec))
 
+        elif self._interp_type == InterpTypes.LINEAR_ONFWD_RATES:
+            if self._interp_fn is None:
+                # not enough data was used to fit the curve -- never reached the fitting stage
+                # (not sure why we have if len(times) == 1: return in the fit(...) function but reluctant to change that)
+                # so work around this. already tested that _dfs is not None
+                if len(self._dfs) == 0 or self._times[0] == 0.0:
+                    out = [1.0]*len(tvec)
+                else:
+                    onf_rate = -np.log(self._dfs[0])/self._times[0]
+                    out = np.exp(-onf_rate * tvec)
+            else:
+                # apparently UnivariateSpline.integral assumes the function is zero outside the data limits (WHY??????)
+                # so work around that. Note that we always have t=0 in the data so only need to worry about the right tail
+                # Here we assume constant extrapolation, consistent with how we set up our interpolator
+                def true_integral(spline, t):
+                    last_t = spline.get_knots()[-1]
+                    i1 = spline.integral(0.0, min(t, last_t))
+                    i2 = (t - min(t, last_t)) * spline(last_t)
+                    return i1 + i2
+
+                log_dfs = [-true_integral(self._interp_fn, t) for t in tvec]
+                out = np.exp(log_dfs)
         else:
 
             out = _vinterpolate(tvec, self.times, self._dfs,
