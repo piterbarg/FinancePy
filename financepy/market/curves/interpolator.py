@@ -353,7 +353,8 @@ class Interpolator():
         else:
             raise FinError("t is not a recognized type")
 
-        if self._interp_type == InterpTypes.PCHIP_LOG_DISCOUNT:
+        if self._interp_type in [InterpTypes.PCHIP_LOG_DISCOUNT,
+                                 InterpTypes.NATCUBIC_LOG_DISCOUNT]:
 
             out = np.exp(self._interp_fn(tvec))
 
@@ -363,18 +364,6 @@ class Interpolator():
                                    InterpTypes.TENSION_ZERO_RATES, ]:
 
             out = np.exp(-tvec * self._interp_fn(tvec))
-
-        # if self._interp_type == InterpTypes.FINCUBIC_LOG_DISCOUNT:
-
-        #     out = np.exp(self._interp_fn(tvec))
-
-        elif self._interp_type == InterpTypes.NATCUBIC_LOG_DISCOUNT:
-
-            out = np.exp(self._interp_fn(tvec))
-
-        #        elif self._interp_type == InterpTypes.LINEAR_LOG_DISCOUNT:
-        #
-        #            out = np.exp(self._interp_fn(tvec))
 
         elif self._interp_type == InterpTypes.LINEAR_ONFWD_RATES:
             if self._interp_fn is None:

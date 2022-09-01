@@ -5,13 +5,12 @@
 import numpy as np
 from scipy import optimize
 
-from scipy.interpolate import CubicSpline
-from scipy.interpolate import PchipInterpolator
 
 import copy
 
 from ...utils.error import FinError
 from ...utils.date import Date
+from ...utils.date import datediff
 from ...utils.helpers import label_to_string
 from ...utils.helpers import check_argument_types, _func_name
 from ...utils.global_vars import gDaysInYear
@@ -28,7 +27,7 @@ SWAP_TOL = 1e-10
 ##############################################################################
 
 
-def _f(df, *args):
+def _f(df, *args,):
     """ Root search objective function for IRS """
 
     curve = args[0]
@@ -63,45 +62,6 @@ def _g(df, *args):
 
 ###############################################################################
 
-
-def _cost_function(dfs, *args):
-    """ Root search objective function for swaps """
-
-#    print("Discount factors:", dfs)
-
-    libor_curve = args[0]
-    value_dt = libor_curve.value_dt
-    libor_curve._dfs = dfs
-
-    times = libor_curve._times
-    values = -np.log(dfs)
-
-    # For discount that need a fit function, we fit it now
-    libor_curve._interpolator.fit(libor_curve._times, libor_curve._dfs)
-
-    if libor_curve._interp_type == InterpTypes.CUBIC_SPLINE_LOG_DFS:
-        libor_curve.splineFunction = CubicSpline(times, values)
-    elif libor_curve._interp_type == InterpTypes.PCHIP_CUBIC_SPLINE:
-        libor_curve.splineFunction = PchipInterpolator(times, values)
-
-    cost = 0.0
-    for depo in libor_curve.used_deposits:
-        v = depo.value(value_dt, libor_curve) / depo.notional
-#        print("DEPO:", depo.maturity_dt, v)
-        cost += (v-1.0)**2
-
-    for fra in libor_curve.used_fras:
-        v = fra.value(value_dt, libor_curve) / fra.notional
-#        print("FRA:", fra.maturity_dt, v)
-        cost += v*v
-
-    for swap in libor_curve.used_swaps:
-        v = swap.value(value_dt, libor_curve) / swap.notional
-#        print("SWAP:", swap.maturity_dt, v)
-        cost += v*v
-
-    print("Cost:", cost)
-    return cost
 
 ###############################################################################
 
@@ -173,7 +133,10 @@ class IborSingleCurve(DiscountCurve):
     def _build_curve(self, **kwargs):
         """ Build curve based on interpolation. """
 
-        self._build_curve_using_1d_solver(**kwargs)
+        if Interpolator.suitable_for_bootstrap(self._interp_type):
+            self._build_curve_using_1d_solver(**kwargs)
+        else:
+            self._build_curve_using_least_squares(**kwargs)
 
 ###############################################################################
 
@@ -427,41 +390,95 @@ class IborSingleCurve(DiscountCurve):
 
 ###############################################################################
 
-    def _build_curve_using_quadratic_minimiser(self):
-        """ Construct the discount curve using a minimisation approach. This is
-        the This enables a more complex interpolation scheme. """
+    def _build_curve_using_least_squares(self, **kwargs):
+        """ 
+        Construct the discount curve using a least-squares minimisation approach.  
+        This enables a more complex interpolation scheme. 
+        """
 
-        t_mat = 0.0
-        df_mat = 1.0
+        def _obj_f_curve_build_ls(dfs):
+            """ 
+            Objective function for fitting all knot dfs at once to the benchmark securities  -- suitable for non-local interpolators
+            """
 
-        grid_times = [t_mat]
-        grid_dfs = [df_mat]
+            libor_curve = self
+            valuation_date = libor_curve._valuation_date
+            libor_curve._dfs[1:] = dfs
 
-        for depo in self.used_deposits:
-            t_mat = (depo.maturity_dt - self.value_dt) / gDaysInYear
-            grid_times.append(t_mat)
+            libor_curve._interpolator.fit(libor_curve._times, libor_curve._dfs)
 
-        for fra in self.used_fras:
-            t_mat = (fra.maturity_dt - self.value_dt) / gDaysInYear
-            grid_times.append(t_mat)
-            grid_dfs.append(df_mat)
+            out = np.zeros(len(libor_curve._used_deposits) +
+                           len(libor_curve._used_fras) + len(libor_curve._used_swaps))
 
-        for swap in self.used_swaps:
-            t_mat = (swap.maturity_dt - self.value_dt) / gDaysInYear
-            grid_times.append(t_mat)
+            idx = 0
+            for depo in libor_curve._used_deposits:
+                # do not need to be too exact here
+                acc_factor = datediff(depo._start_date, depo._maturity_date)
+                # as rate
+                r = -np.log(depo.value(valuation_date, libor_curve) /
+                            depo._notional)/acc_factor
+                out[idx] = r
+                idx = idx + 1
 
-        self._times = np.array(grid_times)
-        self._dfs = np.exp(-self._times * 0.05)
+            for fra in libor_curve._used_FRAs:
+                # do not need to be too exact here
+                acc_factor = datediff(fra._start_date, fra._maturity_date)
+                v = fra.value(valuation_date, libor_curve) / \
+                    fra._notional/acc_factor
+                out[idx] = v
+                idx = idx + 1
 
-        argtuple = (self)
+            for swap in libor_curve._used_swaps:
+                v = swap.value(valuation_date, libor_curve) / swap._fixed_leg._notional / \
+                    swap.pv01(valuation_date, libor_curve)
+                out[idx] = v
+                idx = idx + 1
 
-        res = optimize.minimize(_cost_function, self._dfs, method='BFGS',
-                                args=argtuple, options={'gtol': 1e-3})
+            return out
 
-        self._dfs = np.array(res.x)
+        bootstrap_first = True
 
-        if self.check_refit is True:
-            self.check_refits(1e-10, SWAP_TOL, 1e-5)
+        if bootstrap_first:
+            orig_check_refit = self._check_refit
+            self._check_refit = False
+            self._build_curve_using_1d_solver(**kwargs)
+            self._check_refit - orig_check_refit
+        else:
+            tmat = 0.0
+            dfMat = 1.0
+
+            gridTimes = [tmat]
+            gridDfs = [dfMat]
+
+            self._interpolator = Interpolator(self._interp_type, **kwargs)
+
+            for depo in self._usedDeposits:
+                tmat = (depo._maturity_date -
+                        self._valuation_date) / gDaysInYear
+                gridTimes.append(tmat)
+
+            for fra in self._usedFRAs:
+                tmat = (fra._maturity_date -
+                        self._valuation_date) / gDaysInYear
+                gridTimes.append(tmat)
+                gridDfs.append(dfMat)
+
+            for swap in self._usedSwaps:
+                tmat = (swap._maturity_date -
+                        self._valuation_date) / gDaysInYear
+                gridTimes.append(tmat)
+
+            self._times = np.array(gridTimes)
+            self._dfs = np.exp(-self._times * 0.05)
+
+        res = optimize.least_squares(_obj_f_curve_build_ls,
+                                     self._dfs[1:], bounds=(0, np.inf), ftol=1e-4, xtol=1e-6)
+
+        self._dfs[1:] = np.array(res.x)
+        self._interpolator.fit(self._times, self._dfs)
+
+        if self._check_refit is True:
+            self._check_refits(1e-5, 1e-5, 1e-5)
 
 ###############################################################################
 
@@ -616,22 +633,24 @@ class IborSingleCurve(DiscountCurve):
 
     def _check_refits(self, depo_tol, fra_tol, swap_tol):
         """ Ensure that the Ibor curve refits the calibration instruments. """
-        for depo in self.used_deposits:
-            v = depo.value(self.value_dt, self) / depo.notional
+        for depo in self._used_deposits:
+            v = depo.value(self._valuation_date, self) / depo._notional
             if abs(v - 1.0) > depo_tol:
-                print("Value", v)
-                raise FinError("Deposit not repriced.")
+                raise FinError(
+                    f"Deposit not repriced, error = {abs(v - 1.0)} vs tol={depo_tol}")
 
-        for fra in self.used_fras:
-            v = fra.value(self.value_dt, self, self) / fra.notional
+        for fra in self._used_FRAs:
+            v = fra.value(self._valuation_date, self, self) / fra._notional
             if abs(v) > fra_tol:
-                print("Value", v)
-                raise FinError("FRA not repriced.")
+                raise FinError(
+                    f"FRA not repriced, error = {abs(v) } vs tol={fra_tol}")
 
-        for swap in self.used_swaps:
+        for swap in self._usedSwaps:
             # We value it as of the start date of the swap
             v = swap.value(swap._effective_date, self, self, None)
-            v = v / swap._fixed_leg._notional / swap.pv01(self._valuation_date, self)  # express in terms of the rate
+            v = v / swap._fixed_leg._notional / \
+                swap.pv01(self._valuation_date,
+                          self)  # express in terms of the rate
 #            print("REFIT SWAP VALUATION:", swap._adjustedMaturityDate, v)
             if abs(v) > swap_tol:
                 print("Swap with maturity " + str(swap._maturity_date)
