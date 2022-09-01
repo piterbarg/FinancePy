@@ -147,7 +147,8 @@ class IborSingleCurve(DiscountCurve):
                  ibor_fras: list,
                  ibor_swaps: list,
                  interp_type: InterpTypes = InterpTypes.FLAT_FWD_RATES,
-                 check_refit: bool = False):  # Set to True to test it works
+                 check_refit: bool = False,  # Set to True to test it works
+                 **kwargs):
         """ Create an instance of a FinIbor curve given a valuation date and
         a set of ibor deposits, ibor FRAs and ibor_swaps. Some of these may
         be left None and the algorithm will just use what is provided. An
@@ -165,17 +166,14 @@ class IborSingleCurve(DiscountCurve):
         self.value_dt = value_dt
         self._interp_type = interp_type
         self._interpolator = None
-
-        self._validate_inputs(ibor_deposits, ibor_fras, ibor_swaps)
-        self.check_refit = check_refit
-        self._build_curve()
+        self._build_curve(**kwargs)
 
 ###############################################################################
 
-    def _build_curve(self):
+    def _build_curve(self, **kwargs):
         """ Build curve based on interpolation. """
 
-        self._build_curve_using_1d_solver()
+        self._build_curve_using_1d_solver(**kwargs)
 
 ###############################################################################
 
@@ -361,13 +359,13 @@ class IborSingleCurve(DiscountCurve):
 
 ###############################################################################
 
-    def _build_curve_using_1d_solver(self):
+    def _build_curve_using_1d_solver(self, **kwargs):
         """ Construct the discount curve using a bootstrap approach. This is
         the non-linear slower method that allows the user to choose a number
         of interpolation approaches between the swap rates and other rates. It
         involves the use of a solver. """
 
-        self._interpolator = Interpolator(self._interp_type)
+        self._interpolator = Interpolator(self._interp_type, **kwargs)
         self._times = np.array([])
         self._dfs = np.array([])
 
@@ -423,8 +421,9 @@ class IborSingleCurve(DiscountCurve):
                                      tol=SWAP_TOL, maxiter=50, fprime2=None,
                                      full_output=False)
 
-        if self.check_refit is True:
-            self._check_refits(1e-10, SWAP_TOL, 1e-5)
+        if self._check_refit is True:
+            # self._check_refits(1e-10, swaptol, 1e-5)
+            self._check_refits(2e-5, 2e-5, 2e-5)
 
 ###############################################################################
 
@@ -631,11 +630,11 @@ class IborSingleCurve(DiscountCurve):
 
         for swap in self.used_swaps:
             # We value it as of the start date of the swap
-            v = swap.value(swap.effective_dt, self, self, None)
-            v = v / swap.fixed_leg.notional
-#            print("REFIT SWAP VALUATION:", swap.adjustedMaturityDate, v)
+            v = swap.value(swap._effective_date, self, self, None)
+            v = v / swap._fixed_leg._notional / swap.pv01(self._valuation_date, self)  # express in terms of the rate
+#            print("REFIT SWAP VALUATION:", swap._adjustedMaturityDate, v)
             if abs(v) > swap_tol:
-                print("Swap with maturity " + str(swap.maturity_dt)
+                print("Swap with maturity " + str(swap._maturity_date)
                       + " Not Repriced. Has Value", v)
                 swap.print_fixed_leg_pv()
                 swap.print_float_leg_pv()

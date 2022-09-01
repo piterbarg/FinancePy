@@ -23,6 +23,7 @@ class InterpTypes(Enum):
     PCHIP_ZERO_RATES = 10
     PCHIP_LOG_DISCOUNT = 11
     LINEAR_ONFWD_RATES = 21
+    TENSION_ZERO_RATES = 22
 
 
 # LINEAR_SWAP_RATES = 3
@@ -196,13 +197,15 @@ def _vinterpolate(xValues,
 class Interpolator():
 
     def __init__(self,
-                 interpolator_type: InterpTypes):
+                 interpolator_type: InterpTypes,
+                 **kwargs: dict):
 
         self._interp_type = interpolator_type
         self._interp_fn = None
         self.times = None
         self._dfs = None
         self._refit_curve = False
+        self._optional_interp_params = kwargs
 
     ###########################################################################
 
@@ -307,6 +310,16 @@ class Interpolator():
                 self._interp_fn = InterpolatedUnivariateSpline(
                     onf_times, onf_rates, k=1, ext=3)
 
+        elif self._interp_type == InterpTypes.TENSION_ZERO_RATES:
+            tension_sigma = self._optional_interp_params.get('sigma', 1.0)
+            gSmallVector = np.ones(len(self._times)) * gSmall
+            zero_rates = -np.log(self._dfs) / (self._times + gSmallVector)
+
+            if self._times[0] == 0.0:
+                zero_rates[0] = zero_rates[1]
+
+            self._interp_fn = TensionSpline(self._times, zero_rates, sigma=tension_sigma)
+
     ###########################################################################
 
     def interpolate(self,
@@ -344,7 +357,10 @@ class Interpolator():
 
             out = np.exp(self._interp_fn(tvec))
 
-        elif self._interp_type == InterpTypes.PCHIP_ZERO_RATES:
+        elif self._interp_type in [InterpTypes.PCHIP_ZERO_RATES,
+                                   InterpTypes.FINCUBIC_ZERO_RATES,
+                                   InterpTypes.NATCUBIC_ZERO_RATES,
+                                   InterpTypes.TENSION_ZERO_RATES, ]:
 
             out = np.exp(-tvec * self._interp_fn(tvec))
 
@@ -352,17 +368,9 @@ class Interpolator():
 
         #     out = np.exp(self._interp_fn(tvec))
 
-        elif self._interp_type == InterpTypes.FINCUBIC_ZERO_RATES:
-
-            out = np.exp(-tvec * self._interp_fn(tvec))
-
         elif self._interp_type == InterpTypes.NATCUBIC_LOG_DISCOUNT:
 
             out = np.exp(self._interp_fn(tvec))
-
-        elif self._interp_type == InterpTypes.NATCUBIC_ZERO_RATES:
-
-            out = np.exp(-tvec * self._interp_fn(tvec))
 
         #        elif self._interp_type == InterpTypes.LINEAR_LOG_DISCOUNT:
         #
