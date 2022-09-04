@@ -111,6 +111,58 @@ class IborFRA:
             v *= -1.0
         return v
 
+    ###########################################################################
+
+    def valuation_details(self,
+                          valuation_date: Date,
+                          discount_curve: DiscountCurve,
+                          index_curve: DiscountCurve = None):
+        """
+        A long-hand method that returns various details relevant to valuation in a dictionary
+        Slower than value(...) so should not be used when performance is important
+
+        We want the output dictionary to have  the same labels for different bechmarks
+        (depos, fras, swaps) because we want to present them together so please do not stick new outputs into 
+        one of them only 
+        """
+        if index_curve is None:
+            index_curve = discount_curve
+
+        # Get the Libor index from the index curve
+        dc = DayCount(self._day_count_type)
+        acc_factor = dc.year_frac(self._start_date, self._maturity_date)[0]
+        dfIndex1 = index_curve.df(self._start_date)
+        dfIndex2 = index_curve.df(self._maturity_date)
+        liborFwd = (dfIndex1 / dfIndex2 - 1.0) / acc_factor
+
+        # Get the discount factor from a discount curve
+        dfDiscount2 = discount_curve.df(self._maturity_date)
+
+        v = acc_factor * (liborFwd - self._fraRate) * dfDiscount2
+
+        # Forward value the FRA to the value date
+        df_to_valuation_date = discount_curve.df(valuation_date)
+        v = v * self._notional / df_to_valuation_date
+
+        if self._payFixedRate is True:  # VP: ??? pay fixed should be positive notional
+            v *= -1.0
+
+        out = {
+            'type': 'FRA',
+            'start_date': self._start_date,
+            'maturity_date': self._maturity_date,
+            'day_count_type': self._day_count_type,
+            'contract_rate': self._fraRate,
+            'market_rate': liborFwd,
+            'spot_pvbp': acc_factor * dfDiscount2,
+            'fwd_pvbp': acc_factor * dfDiscount2/discount_curve.df(self._start_date),
+            'unit_value': acc_factor * dfDiscount2 * (liborFwd - self._fraRate),
+            'value': v,
+            # ignoring pay_fixed flag (which is wrong anyway I think),
+            # bus day adj type, calendar for now
+        }
+        return out
+
     ##########################################################################
 
     def maturity_df(self, index_curve):

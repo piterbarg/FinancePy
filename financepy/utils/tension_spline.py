@@ -11,9 +11,9 @@ class TensionSpline(object):
     '''
 
     def __init__(self, x, y, sigma):
-        self._x = np.asarray(x, dtype=float)
-        self._y = np.asarray(y, dtype=float)
-        self._sigma = max(sigma, 1e-6)
+        self._x = np.atleast_1d(x).astype(float)
+        self._y = np.atleast_1d(y).astype(float)
+        self._sigma = max(sigma, 1e-2)
         self.calculate_coefs()
 
     def validate_inputs(self):
@@ -66,7 +66,7 @@ class TensionSpline(object):
         self._ypp = solve_banded((1, 1), ab, b)
 
     def __call__(self, xs):
-        xs = np.asarray(xs, dtype=float)
+        xs = np.atleast_1d(xs).astype(float)
 
         # rename for brevity
         h = self._h

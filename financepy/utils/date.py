@@ -386,6 +386,11 @@ class Date():
     def __eq__(self, other):
         return self.excel_dt == other.excel_dt
 
+###########################################################################
+
+    def __hash__(self):
+        return hash(self._excel_date)
+
     ###########################################################################
 
     def is_weekend(self):

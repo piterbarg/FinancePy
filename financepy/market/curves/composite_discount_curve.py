@@ -8,7 +8,8 @@ from typing import List, Union
 
 ###############################################################################
 
-from ...utils.date import Date
+from ...utils.day_count import DayCountTypes
+from ...utils.frequency import FrequencyTypes
 from ...utils.helpers import label_to_string
 from ...utils.helpers import check_argument_types
 from ...market.curves.discount_curve import DiscountCurve
@@ -27,8 +28,8 @@ class CompositeDiscountCurve(DiscountCurve):
         """
 
         check_argument_types(self.__init__, locals())
-
-        assert child_curves, 'Empty list of child curves is not supported'
+        assert len(
+            child_curves) > 0, 'Empty list of child curves is not supported'
 
         self._children = child_curves
 
@@ -36,18 +37,23 @@ class CompositeDiscountCurve(DiscountCurve):
         assert all(c._valuation_date ==
                    self._valuation_date for c in self._children), 'Child curves must all have the same vlauation date'
 
+        # Read off the first child
+        self._day_count_type = self._children[0]._day_count_type
+
+
 ###############################################################################
 
-    def df(self,
-           dates: Union[Date, list]):
+    def _df(self,
+            t: Union[float, np.ndarray]):
         """ 
         Return discount factors given a single or vector of dates. 
         ParentRate = Sum of children rates => Parent DF = product of children dfs 
         """
 
-        dfs = np.ones_like(np.asarray(dates), dtype=float)
+        dfs = np.ones_like(np.atleast_1d(t), dtype=float)
         for c in self._children:
-            dfs *= c.df(dates)
+            dfc = c._df(t)
+            dfs *= dfc
 
         return dfs
 

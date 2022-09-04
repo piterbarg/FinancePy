@@ -2,11 +2,10 @@
 # Copyright (C) 2018, 2019, 2020 Dominic O'Kane
 ##############################################################################
 
-import numpy as np
-from scipy import optimize
-
-
 import copy
+import numpy as np
+from typing import Union
+from scipy import optimize
 
 from ...utils.error import FinError
 from ...utils.date import Date
@@ -108,6 +107,7 @@ class IborSingleCurve(DiscountCurve):
                  ibor_swaps: list,
                  interp_type: InterpTypes = InterpTypes.FLAT_FWD_RATES,
                  check_refit: bool = False,  # Set to True to test it works
+                 do_build: bool = True,
                  **kwargs):
         """ Create an instance of a FinIbor curve given a valuation date and
         a set of ibor deposits, ibor FRAs and ibor_swaps. Some of these may
@@ -125,18 +125,46 @@ class IborSingleCurve(DiscountCurve):
 
         self.value_dt = value_dt
         self._interp_type = interp_type
-        self._interpolator = None
+        self._check_refit = check_refit
+        self._interpolator = Interpolator(self._interp_type, **kwargs)
+        self._is_built = False
+        self._optional_interp_params = kwargs
+
+        if do_build:
+            self._build_curve(**kwargs)
+
+###############################################################################
+
+    def build_curve(self, **kwargs):
+        """ 
+        Build curve based on interpolation. 
+
+        Not all interpolators are suitable for the boostrap/1d solver, only those that are local,
+        where the value of df[i] does not affect discount factors for t<=t[i-1]
+        """
+
+        if self._is_built:
+            # already built
+            return
+
         self._build_curve(**kwargs)
 
 ###############################################################################
 
     def _build_curve(self, **kwargs):
-        """ Build curve based on interpolation. """
+        """ 
+        Internal method that actually builds curve based on interpolation. 
+
+        Not all interpolators are suitable for the boostrap/1d solver, only those that are local,
+        where the value of df[i] does not affect discount factors for t<=t[i-1]
+        """
 
         if Interpolator.suitable_for_bootstrap(self._interp_type):
             self._build_curve_using_1d_solver(**kwargs)
         else:
             self._build_curve_using_least_squares(**kwargs)
+
+        self._is_built = True
 
 ###############################################################################
 
@@ -331,6 +359,7 @@ class IborSingleCurve(DiscountCurve):
         self._interpolator = Interpolator(self._interp_type, **kwargs)
         self._times = np.array([])
         self._dfs = np.array([])
+        self._is_built = True
 
         # time zero is now.
         t_mat = 0.0
@@ -437,6 +466,7 @@ class IborSingleCurve(DiscountCurve):
             return out
 
         bootstrap_first = True
+        self._is_built = True
 
         if bootstrap_first:
             orig_check_refit = self._check_refit
@@ -488,6 +518,7 @@ class IborSingleCurve(DiscountCurve):
         require the use of a solver. It is also market standard. """
 
         self._interpolator = Interpolator(self._interp_type)
+        self._is_built = True
 
         self._times = np.array([])
         self._dfs = np.array([])
@@ -661,6 +692,16 @@ class IborSingleCurve(DiscountCurve):
 
 ###############################################################################
 
+    def _df(self,
+            t: Union[float, np.ndarray]):
+        """ 
+        Override from DiscountCurve so we can check if the curve has actually been built. 
+        """
+        assert self._is_built, 'The curve has not yet been built, call build_curve() first'
+        return super()._df(t)
+
+###############################################################################
+
     def __repr__(self):
         """ Print out the details of the Ibor curve. """
 
@@ -679,14 +720,15 @@ class IborSingleCurve(DiscountCurve):
             s += label_to_string("SWAP", "")
             s += swap.__repr__()
 
-        num_points = len(self._times)
-
         s += label_to_string("INTERP TYPE", self._interp_type)
+        s += label_to_string("IS BUILT", self._is_built)
 
-        s += label_to_string("GRID TIMES", "GRID DFS")
-        for i in range(0, num_points):
-            s += label_to_string("% 10.6f" % self._times[i],
-                                 "%12.10f" % self._dfs[i])
+        if self._is_built:
+            num_points = len(self._times)
+            s += label_to_string("GRID TIMES", "GRID DFS")
+            for i in range(0, num_points):
+                s += label_to_string("% 10.6f" % self._times[i],
+                                     "%12.10f" % self._dfs[i])
 
         return s
 

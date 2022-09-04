@@ -32,5 +32,5 @@ def test_TensorSpline_Values():
 
 
 # if __name__ == '__main__':
-    # test_TensorSpline_Recovers_Inputs(4)
+    # test_TensorSpline_Recovers_Inputs(2)
     # test_TensorSpline_Values()

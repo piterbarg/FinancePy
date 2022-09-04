@@ -8,7 +8,7 @@ from scipy import interpolate
 
 from ...utils.date import Date
 from ...utils.error import FinError
-from ...utils.global_vars import gSmall
+from ...utils.global_vars import gSmall, gBasisPoint
 from ...utils.math import test_monotonicity
 from ...utils.frequency import FrequencyTypes
 from ...utils.helpers import label_to_string
@@ -46,25 +46,45 @@ class DiscountCurvePWFONF(DiscountCurve):
         if len(knot_dates) == 0:
             raise FinError("Dates vector must have length > 0")
 
-        self._knot_dates = knot_dates
-        self._onfwd_rates = np.asarray(onfwd_rates)
+        self._knot_dates = [max(d, valuation_date) for d in knot_dates]
+        self._onfwd_rates = np.atleast_1d(onfwd_rates)
 
         self._freq_type = FrequencyTypes.CONTINUOUS
-        self._day_count_type = DayCountTypes.ACT_ACT_ISDA
+        self._day_count_type = DayCountTypes.SIMPLE
 
         dc_times = times_from_dates(self._knot_dates,
                                     self._valuation_date,
                                     self._day_count_type)
 
-        self._times = np.asarray(dc_times)
+        self._times = np.atleast_1d(dc_times)
 
         # it is easier to deal in log(dfs), log(df[Ti]) = -\int_0^T_i f(u) du
-        self._logdfs = -np.cumsum(np.diff(self._times, prepend=0.0) * self._onfwd_rates)
+        self._logdfs = - \
+            np.cumsum(np.diff(self._times, prepend=0.0) * self._onfwd_rates)
         self._logdfs_interp = interpolate.interp1d(
             np.concatenate(([0.0], self._times)), np.concatenate(([0.0], self._logdfs)), kind='linear', bounds_error=False, fill_value='extrapolate')
 
         if test_monotonicity(self._times) is False:
             raise FinError("Times are not sorted in increasing order")
+
+    ###############################################################################
+
+    @classmethod
+    def brick_wall_curve(cls, valuation_date: Date, start_date: Date, end_date: Date, level: float = 1.0*gBasisPoint):
+        """Generate a discount curve of the shape f(t) = level*1_{startdate < t <= enddate} where f(.) is the instantaneous forward rate
+            Mostly useful for applying bumps to other discount_curve's, see composite_discount_curve.py
+        Args:
+            valuation_date (Date): valuation date for the discount_curve
+            start_date (Date): start of the non-zero ON forward rate
+            end_date (Date): end of the non-zero ON forward rate
+            level (float, optional): ON forward rate between the start and end dates. Defaults to 1.0*gBasisPoint.
+
+        Returns:
+            DiscountCurve: discount curve of the required shape
+        """
+        knot_dates = [start_date, end_date, end_date.add_tenor('1D')]
+        onfwd_rates = [0.0, level, 0.0]
+        return cls(valuation_date, knot_dates, onfwd_rates)
 
     ###############################################################################
 
@@ -74,7 +94,7 @@ class DiscountCurvePWFONF(DiscountCurve):
         Piecewise flat instantaneous (ON) fwd rate is the same as linear logDfs
         """
 
-        times = np.asarray(times, dtype=float)
+        times = np.atleast_1d(times)
 
         if np.any(times < 0.0):
             raise FinError("All times must be positive")
@@ -86,23 +106,18 @@ class DiscountCurvePWFONF(DiscountCurve):
 
     ###############################################################################
 
-    def df(self, dates: Union[Date, list]):
-        """ Return discount factors given a single or vector of dates. The
+    def _df(self, t: Union[float, np.ndarray]):
+        """ Return discount factors given a single or vector of times in years. The
         discount factor depends on the rate and this in turn depends on its
         compounding frequency and it defaults to continuous compounding. It
         also depends on the day count convention. This was set in the
         construction of the curve to be ACT_ACT_ISDA. """
 
-        # Get day count times to use with curve day count convention
-        dc_times = times_from_dates(dates,
-                                    self._valuation_date,
-                                    self._day_count_type)
-
-        zero_rates = self._zero_rate(dc_times)
+        zero_rates = self._zero_rate(t)
 
         df = self._zero_to_df(self._valuation_date,
                               zero_rates,
-                              dc_times,
+                              t,
                               self._freq_type,
                               self._day_count_type)
 
