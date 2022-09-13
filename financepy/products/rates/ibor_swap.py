@@ -189,10 +189,13 @@ class IborSwap:
         pvbp_sign = 1 if is_payers else -1
 
         out = {
-            'type': 'Swap',
+            'type': type(self).__name__,
             'start_date': self._effective_date,
             'maturity_date': self._maturity_date,
-            'day_count_type': self._fixed_leg._day_count_type,
+            'day_count_type': self._fixed_leg._day_count_type.name,
+            'fixed_leg_type': self._fixed_leg._leg_type.name,
+            'fixed_freq_type': self._fixed_leg._freq_type.name,
+            'notional': self._fixed_leg._notional,
             'contract_rate': self._fixed_leg._coupon,
             'market_rate': swap_rate,
             'spot_pvbp': pv01*pvbp_sign,

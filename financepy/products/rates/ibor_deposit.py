@@ -143,10 +143,11 @@ class IborDeposit:
         value = value * df_maturity / df_settle  # VP: ??? this looks like a start_date - forward value? not spot value? why?
 
         out = {
-            'type': 'Depo',
+            'type': type(self).__name__,
             'start_date': self._start_date,
             'maturity_date': self._maturity_date,
-            'day_count_type': self._day_count_type,
+            'day_count_type': self._day_count_type.name,
+            'notional': self._notional,
             'contract_rate': self._deposit_rate,
             'market_rate': (df_settle / df_maturity - 1)/acc_factor,
             # for depo pvbp is actually negative: rates up, value down. but probably makes sense to report as positive, asif for a spot-starting fra

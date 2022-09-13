@@ -3,6 +3,7 @@
 ##############################################################################
 
 
+from ...utils.global_types import SwapTypes
 from ...utils.error import FinError
 from ...utils.date import Date
 from ...utils.calendar import Calendar
@@ -148,10 +149,12 @@ class IborFRA:
             v *= -1.0
 
         out = {
-            'type': 'FRA',
+            'type': type(self).__name__,
             'start_date': self._start_date,
             'maturity_date': self._maturity_date,
-            'day_count_type': self._day_count_type,
+            'day_count_type': self._day_count_type.name,
+            'fixed_leg_type': SwapTypes.PAY.name if self._payFixedRate else SwapTypes.RECEIVE.name,
+            'notional': self._notional,
             'contract_rate': self._fraRate,
             'market_rate': liborFwd,
             'spot_pvbp': acc_factor * dfDiscount2,
