@@ -3,6 +3,7 @@
 ##############################################################################
 
 import numpy as np
+import pandas as pd
 
 from ...utils.error import FinError
 from ...utils.date import Date
@@ -133,23 +134,34 @@ class IborSwap:
               value_dt: Date,
               discount_curve: DiscountCurve,
               index_curve: DiscountCurve = None,
-              first_fixing_rate=None):
+              first_fixing_rate=None,
+              pv_only=True):
         """ Value the interest rate swap on a value date given a single Ibor
         discount curve. """
 
         if index_curve is None:
             index_curve = discount_curve
 
-        fixed_leg_value = self.fixed_leg.value(value_dt,
-                                                discount_curve)
+        fixed_leg_results = self._fixed_leg.value(value_dt,
+                                                  discount_curve,
+                                                  pv_only=pv_only)
 
-        float_leg_value = self.float_leg.value(value_dt,
-                                                discount_curve,
-                                                index_curve,
-                                                first_fixing_rate)
+        float_leg_results = self._float_leg.value(value_dt,
+                                                  discount_curve,
+                                                  index_curve,
+                                                  first_fixing_rate,
+                                                  pv_only=pv_only)
 
-        value = fixed_leg_value + float_leg_value
-        return value
+        if pv_only:
+            value = fixed_leg_results + float_leg_results
+            return value
+        else:
+            value = fixed_leg_results[0] + float_leg_results[0]
+            cashflow_report = pd.concat(
+                [fixed_leg_results[1], float_leg_results[1]],
+                ignore_index=True)
+
+            return value, cashflow_report
 
     ###########################################################################
 

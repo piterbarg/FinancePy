@@ -68,6 +68,56 @@ def test_LiborSwap():
     assert round(v, 4) == 318901.6015
 
 
+def test_LiborSwapCashflowReport():
+    # as test_LiborSwap but with extra output
+    start_date = Date(27, 12, 2017)
+    end_date = Date(27, 12, 2067)
+
+    fixed_coupon = 0.015
+    fixedFreqType = FrequencyTypes.ANNUAL
+    fixed_day_count_type = DayCountTypes.THIRTY_E_360
+
+    float_spread = 0.0
+    floatFreqType = FrequencyTypes.SEMI_ANNUAL
+    float_day_count_type = DayCountTypes.ACT_360
+    firstFixing = -0.00268
+
+    swapCalendarType = CalendarTypes.WEEKEND
+    bus_day_adjust_type = BusDayAdjustTypes.FOLLOWING
+    date_gen_rule_type = DateGenRuleTypes.BACKWARD
+    fixed_leg_type = SwapTypes.RECEIVE
+
+    notional = 10.0 * ONE_MILLION
+
+    swap = IborSwap(start_date,
+                    end_date,
+                    fixed_leg_type,
+                    fixed_coupon,
+                    fixedFreqType,
+                    fixed_day_count_type,
+                    notional,
+                    float_spread,
+                    floatFreqType,
+                    float_day_count_type,
+                    swapCalendarType,
+                    bus_day_adjust_type,
+                    date_gen_rule_type)
+
+    """ Now perform a valuation after the swap has seasoned but with the
+    same curve being used for discounting and working out the implied
+    future Libor rates. """
+
+    valuation_date = Date(30, 11, 2018)
+    settlement_date = valuation_date.add_days(2)
+    libor_curve = buildIborSingleCurve(valuation_date)
+    v = swap.value(settlement_date, libor_curve, libor_curve, firstFixing, pv_only=False)
+
+    # print(v[1])
+
+    sum_of_cashflows = v[1]['payment_pv'].sum()
+    assert round(sum_of_cashflows - v[0], 4) == 0
+
+
 def test_dp_example():
     #  http://www.derivativepricing.com/blogpage.asp?id=8
 
@@ -112,3 +162,7 @@ def test_dp_example():
 
     # This is essentially zero
     assert round(v * 1000, 4) == 785300.0566
+
+
+# if __name__ == '__main__':
+#     test_LiborSwapCashflowReport()
