@@ -1,7 +1,7 @@
 ##############################################################################
 # Copyright (C) 2018, 2019, 2020 Dominic O'Kane
 ##############################################################################
-
+import pandas as pd
 
 from ...utils.global_types import SwapTypes
 from ...utils.error import FinError
@@ -84,7 +84,8 @@ class IborFRA:
     def value(self,
               value_dt: Date,
               discount_curve: DiscountCurve,
-              index_curve: DiscountCurve = None):
+              index_curve: DiscountCurve = None,
+              pv_only=True):
         """ Determine mark to market value of a FRA contract based on the
         market FRA rate. We allow the pricing to have a different curve for
         the Libor index and the discounting of promised cash flows. """
@@ -108,9 +109,26 @@ class IborFRA:
         df_value = discount_curve.df(value_dt)
         v = v * self.notional / df_value
 
+        pay_fixed_sign = 1
         if self.pay_fixed_rate is True:
+            pay_fixed_sign = -1  # VP: is this the right sign?
             v *= -1.0
-        return v
+
+        if pv_only:
+            return v
+        else:
+            df = pd.DataFrame(index=[0])
+            df['payment_date'] = self._maturity_date
+            df['start_accrual_date'] = self._start_date
+            df['end_accrual_date'] = self._maturity_date
+            df['year_frac'] = self.acc_factor
+            df['rate'] = libor_fwd - self._fraRate
+            df['payment'] = pay_fixed_sign * acc_factor * (libor_fwd - self._fraRate) * self._notional
+            df['payment_df'] = df_mat / df_value
+            df['payment_pv'] = v
+            df['leg'] = 'FRA'
+
+            return v,
 
     ###########################################################################
 

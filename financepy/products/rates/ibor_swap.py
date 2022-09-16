@@ -130,6 +130,19 @@ class IborSwap:
 
     ###########################################################################
 
+    def set_fixed_rate_to_atm(self,
+                              valuation_date: Date,
+                              discount_curve: DiscountCurve,
+                              index_curve: DiscountCurve = None,
+                              first_fixing: float = None):
+        '''
+        Reset fixed rate to atm given curve(s). returns the new atm
+        '''
+        atm = self.swap_rate(valuation_date, discount_curve, index_curve, first_fixing)
+        self.set_fixed_rate(atm)
+        return atm
+
+    ###########################################################################
     def value(self,
               value_dt: Date,
               discount_curve: DiscountCurve,

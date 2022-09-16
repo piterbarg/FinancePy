@@ -12,7 +12,11 @@ from financepy.products.rates.ibor_deposit import IborDeposit
 from financepy.products.rates.ibor_fra import IborFRA
 from financepy.products.rates.ibor_swap import IborSwap
 from financepy.products.rates.ibor_single_curve import IborSingleCurve
-from financepy.products.rates.ibor_curve_risk_engine import par_rate_risk_report, forward_rate_risk_report
+import financepy.products.rates.ibor_curve_risk_engine as re
+
+# when set to True this file can be run standalone and will produce some useful output.
+# Set to False to use as part of a testing framework
+DIAGNOSTICS_MODE = True
 
 
 def test_par_rate_risk_report_cubic_zero():
@@ -35,18 +39,19 @@ def test_par_rate_risk_report_cubic_zero():
     par_rate_bump = 1*gBasisPoint
 
     # run the report
-    base_values, risk_report = par_rate_risk_report(
+    base_values, risk_report = re.par_rate_risk_report(
         base_curve, trades, bump_size=par_rate_bump)
 
     expected_totals = [0.00122854, -0.25323828, -0.24271177, -0.01423219,  0.31617136,
                        4.0262114, 2.03409619, -0.3957559]
     actual_totals = risk_report['total'].values
 
-    # trade_labels = list(base_values.keys())
-    # np.set_printoptions(suppress=True)
-    # print(base_values)
-    # print(risk_report['total'].values)
-    # print(risk_report[trade_labels + ['total']].sum(axis=0))
+    if DIAGNOSTICS_MODE:
+        trade_labels = list(base_values.keys())
+        np.set_printoptions(suppress=True)
+        print(base_values)
+        print(risk_report['total'].values)
+        print(risk_report[trade_labels + ['total']].sum(axis=0))
 
     assert max(np.abs(actual_totals - expected_totals)) <= 1e-4
 
@@ -66,7 +71,7 @@ def test_par_rate_risk_report_flat_forward():
     par_rate_bump = 1*gBasisPoint
 
     # run the report
-    base_values, risk_report = par_rate_risk_report(
+    base_values, risk_report = re.par_rate_risk_report(
         base_curve, trades, bump_size=par_rate_bump)
 
     expected_totals = [-0.08629015, -0.20597528, -0.08628776, -0.07793533, -0.05012633,
@@ -75,11 +80,12 @@ def test_par_rate_risk_report_flat_forward():
                        ]
     actual_totals = risk_report['total'].values
 
-    # trade_labels = list(base_values.keys())
-    # np.set_printoptions(suppress=True)
-    # print(base_values)
-    # print(risk_report['total'].values)
-    # print(risk_report[trade_labels + ['total']].sum(axis=0))
+    if DIAGNOSTICS_MODE:
+        trade_labels = list(base_values.keys())
+        np.set_printoptions(suppress=True)
+        print(base_values)
+        print(risk_report['total'].values)
+        print(risk_report[trade_labels + ['total']].sum(axis=0))
 
     assert max(np.abs(actual_totals - expected_totals)) <= 1e-4
 
@@ -108,21 +114,101 @@ def test_forward_rate_risk_report():
     forward_rate_bump = 1*gBasisPoint
 
     # run the report
-    base_values, risk_report = forward_rate_risk_report(
+    base_values, risk_report = re.forward_rate_risk_report(
         base_curve, grid_last_date, grid_bucket, trades, bump_size=forward_rate_bump)
 
-    expected_totals = [0.24374713, 0.24648603, 0.47965093, 0.49286362, 0.48197167, 0.47113499,
-                       0.46583163, 0.47058739, 0.46015979, 0.45481044, 0.23886436, 0.22408547,
-                       0.21923005, 0.21423566, 0.21186086, 0.21396794, 0.0069773]
-    actual_totals = risk_report['total'].values
+    expected_totals = [0.25196322, 0.24648603, 0.48750647, 0.49286362, 0.48160453, 0.47113499,
+                       0.46547237, 0.47058739, 0.45980829, 0.45481044, 0.23117766, 0.22408547,
+                       0.2190641,  0.21423566, 0.21169689, 0.21396794, 0.]
+    actual_totals = risk_report[re.DV01_PREFIX+'total'].values
 
-    # trade_labels = list(base_values.keys())
-    # np.set_printoptions(suppress=True)
-    # print(base_values)
-    # print(risk_report)
-    # print(risk_report['total'].values)
-    # print(risk_report[trade_labels + ['total']].sum(axis=0))
+    if DIAGNOSTICS_MODE:
+        dv01_trade_labels = [re.DV01_PREFIX + l for l in base_values.keys()]
+        np.set_printoptions(suppress=True)
+        print(base_values)
+        print(risk_report)
+        print(risk_report[re.DV01_PREFIX + 'total'].values)
+        print(risk_report[dv01_trade_labels + [re.DV01_PREFIX + 'total']].sum(axis=0))
 
+    assert max(np.abs(actual_totals - expected_totals)) <= 1e-4
+
+
+def test_forward_rate_custom_grid_risk_report():
+    valuation_date = Date(6, 10, 2001)
+    cal = CalendarTypes.UNITED_KINGDOM
+    interp_type = InterpTypes.FLAT_FWD_RATES
+
+    depoDCCType = DayCountTypes.ACT_360
+    fraDCCType = DayCountTypes.ACT_360
+    swapType = SwapTypes.PAY
+    fixedDCCType = DayCountTypes.THIRTY_E_360_ISDA
+    fixedFreqType = FrequencyTypes.SEMI_ANNUAL
+
+    settlement_date, base_curve = _generate_base_curve(
+        valuation_date, cal, interp_type, depoDCCType, fraDCCType, swapType, fixedDCCType, fixedFreqType)
+    trades = _generate_trades(valuation_date, cal, swapType,
+                              fixedDCCType, fixedFreqType, settlement_date, base_curve)
+
+    # the grid on which we generate the risk report
+    grid = [valuation_date, valuation_date.add_tenor(
+        '3M'), valuation_date.add_tenor('15M'), valuation_date.add_tenor('10Y')]
+
+    # size of bump to apply. In all cases par risk is reported as change in value to 1 bp rate bump
+    forward_rate_bump = 1*gBasisPoint
+
+    # run the report
+    base_values, risk_report, *_ = re.forward_rate_risk_report_custom_grid(
+        base_curve, grid, trades, bump_size=forward_rate_bump)
+
+    expected_totals = [0.24374713, 1.70089994, 3.65138343]
+    actual_totals = risk_report[re.DV01_PREFIX+'total'].values
+
+    if DIAGNOSTICS_MODE:
+        dv01_trade_labels = [re.DV01_PREFIX + l for l in base_values.keys()]
+        np.set_printoptions(suppress=True)
+        print(base_values)
+        print(risk_report)
+        print(risk_report[re.DV01_PREFIX + 'total'].values)
+        print(risk_report[dv01_trade_labels + [re.DV01_PREFIX + 'total']].sum(axis=0))
+
+    assert max(np.abs(actual_totals - expected_totals)) <= 1e-4
+
+
+def test_carry_rolldown_report():
+    valuation_date = Date(6, 10, 2001)
+    cal = CalendarTypes.UNITED_KINGDOM
+    interp_type = InterpTypes.FLAT_FWD_RATES
+
+    depoDCCType = DayCountTypes.ACT_360
+    fraDCCType = DayCountTypes.ACT_360
+    swapType = SwapTypes.PAY
+    fixedDCCType = DayCountTypes.THIRTY_E_360_ISDA
+    fixedFreqType = FrequencyTypes.SEMI_ANNUAL
+
+    settlement_date, base_curve = _generate_base_curve(
+        valuation_date, cal, interp_type, depoDCCType, fraDCCType, swapType, fixedDCCType, fixedFreqType)
+    trades = _generate_trades(valuation_date, cal, swapType,
+                              fixedDCCType, fixedFreqType, settlement_date, base_curve)
+
+    # the grid on which we generate the risk report
+    grid_bucket = '6M'
+    grid_last_date = max(t._maturity_date for t in trades)
+
+    # run the report
+    base_values, risk_report, *_ = re.carry_rolldown_report(
+        base_curve, grid_last_date, grid_bucket, trades,)
+
+    if DIAGNOSTICS_MODE:
+        roll_trade_labels = [re.ROLL_PREFIX + l for l in base_values.keys()]
+        np.set_printoptions(suppress=True)
+        print(base_values)
+        print(risk_report)
+        print(risk_report[re.ROLL_PREFIX + 'total'].values)
+        print(risk_report[roll_trade_labels + [re.ROLL_PREFIX + 'total']].sum(axis=0))
+
+    expected_totals = [-21.07588523, 16.07402002, -27.27637637, -0.02469482, -104.29563056,
+                       0.32142506, 35.98144427, 0.28310627,    0.]
+    actual_totals = risk_report[re.ROLL_PREFIX + 'total'].values
     assert max(np.abs(actual_totals - expected_totals)) <= 1e-4
 
 
@@ -175,5 +261,8 @@ def _generate_base_curve(valuation_date, cal, interp_type, depoDCCType, fraDCCTy
     return settlement_date, base_curve
 
 
-# if __name__ == '__main__':
-#    test_par_rate_risk_report_cubic_zero()
+if DIAGNOSTICS_MODE and __name__ == '__main__':
+    # test_par_rate_risk_report_cubic_zero()
+    # test_forward_rate_risk_report()
+    # test_forward_rate_custom_grid_risk_report()
+    test_carry_rolldown_report()
