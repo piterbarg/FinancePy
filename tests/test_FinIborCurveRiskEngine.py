@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 from helpers import *
 from financepy.utils.date import Date
@@ -212,6 +214,52 @@ def test_carry_rolldown_report():
     assert max(np.abs(actual_totals - expected_totals)) <= 1e-4
 
 
+def test_parallel_shift_ladder_report():
+    valuation_date = Date(6, 10, 2001)
+    cal = CalendarTypes.UNITED_KINGDOM
+    interp_type = InterpTypes.FLAT_FWD_RATES
+
+    depoDCCType = DayCountTypes.ACT_360
+    fraDCCType = DayCountTypes.ACT_360
+    swapType = SwapTypes.PAY
+    fixedDCCType = DayCountTypes.THIRTY_E_360_ISDA
+    fixedFreqType = FrequencyTypes.SEMI_ANNUAL
+
+    settlement_date, base_curve = _generate_base_curve(
+        valuation_date, cal, interp_type, depoDCCType, fraDCCType, swapType, fixedDCCType, fixedFreqType)
+    trades = _generate_trades(valuation_date, cal, swapType,
+                              fixedDCCType, fixedFreqType, settlement_date, base_curve)
+
+    # the curve shift grids on which we calculate the PV ladder
+    curve_shifts = np.linspace(-400*gBasisPoint, 400*gBasisPoint, 17, endpoint=True)
+
+    # run the report
+    base_values, risk_report = re.parallel_shift_ladder_report(
+        base_curve, curve_shifts, trades,)
+
+    if DIAGNOSTICS_MODE:
+        pv_trade_labels = [re.PV_PREFIX + l for l in base_values.keys()]
+        np.set_printoptions(suppress=True)
+        print(base_values)
+        print(risk_report)
+        print(risk_report[re.PV_PREFIX + 'total'].values)
+        print(risk_report[pv_trade_labels + [re.PV_PREFIX + 'total']].sum(axis=0))
+
+        # risk_report.plot('shift_bp', re.PV_PREFIX + 'total')
+        x = risk_report['shift_bp'].values
+        y = risk_report[re.PV_PREFIX + 'total'].values
+        plt.plot(x, y - x*(y[-1] - y[0])/(x[-1] - x[0]))
+        plt.show()
+
+    expected_totals = [-2407.30636808, -2087.15913624, -1772.70446365, -1463.84150813,
+                       -1160.47126898,  -862.49655251,  -569.82193811,  -282.35374508,
+                       -0.,           277.32959522,   549.7236947,    817.26933932,
+                       1080.05198694,  1338.15554197,  1591.66238438,  1840.6533982,
+                       2085.20799948, ]
+    actual_totals = risk_report[re.PV_PREFIX + 'total'].values
+    assert max(np.abs(actual_totals - expected_totals)) <= 1e-4
+
+
 def _generate_trades(valuation_date, cal, swapType, fixedDCCType, fixedFreqType, settlement_date, base_curve):
     trade1 = IborSwap(settlement_date, "4Y", swapType, 4.20 /
                       100.0, fixedFreqType, fixedDCCType, calendar_type=cal, notional=10000)
@@ -265,4 +313,5 @@ if DIAGNOSTICS_MODE and __name__ == '__main__':
     # test_par_rate_risk_report_cubic_zero()
     # test_forward_rate_risk_report()
     # test_forward_rate_custom_grid_risk_report()
-    test_carry_rolldown_report()
+    # test_carry_rolldown_report()
+    test_parallel_shift_ladder_report()

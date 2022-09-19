@@ -24,7 +24,7 @@ from ...market.curves.discount_curve import DiscountCurve
 class DiscountCurvePWFONF(DiscountCurve):
     """ Curve with piece-wise flat instantaneous (ON) fwd rates. Curve is made up of a series of sections with each having
     a flat instantaneous forward rate. The default compounding assumption is
-    continuous. The class inherits methods from FinDiscountCurve. """
+    continuous. The class inherits methods from DiscountCurve. """
 
     def __init__(self,
                  valuation_date: Date,
@@ -84,6 +84,14 @@ class DiscountCurvePWFONF(DiscountCurve):
         """
         knot_dates = [start_date, end_date, end_date.add_tenor('1D')]
         onfwd_rates = [0.0, level, 0.0]
+        return cls(valuation_date, knot_dates, onfwd_rates)
+
+    ###############################################################################
+
+    @classmethod
+    def flat_curve(cls, valuation_date: Date, level: float = 1.0*gBasisPoint):
+        knot_dates = [valuation_date.add_tenor('1Y')]
+        onfwd_rates = [level]
         return cls(valuation_date, knot_dates, onfwd_rates)
 
     ###############################################################################

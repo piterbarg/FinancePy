@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from typing import List, Union
 
@@ -17,6 +18,7 @@ from ...products.rates.ibor_single_curve import IborSingleCurve
 from ...products.rates.ibor_single_curve_par_shocker import IborSingleCurveParShocker
 from ...products.rates.ibor_benchmarks_report import benchmarks_report, ibor_benchmarks_report
 
+PV_PREFIX = 'PV:'
 DV01_PREFIX = 'DV01:'
 ROLL_PREFIX = 'ROLL:'
 
@@ -211,6 +213,38 @@ def carry_rolldown_report(base_curve: DiscountCurve,
     risk_report[ROLL_PREFIX+'total'] = risk_report[[ROLL_PREFIX + l for l in trade_labels]].sum(axis=1)
 
     return base_values, risk_report, first_period_carry
+
+
+def parallel_shift_ladder_report(base_curve: DiscountCurve,
+                                 curve_shifts: np.ndarray,
+                                 trades: list,  trade_labels: list = None,):
+
+    curve_shift_labels = [f'SHIFT:{s/gBasisPoint:.1f}' for s in curve_shifts]
+    risk_report = pd.DataFrame(columns=['shift_label', 'shift_bp'],
+                               data=zip(curve_shift_labels, curve_shifts/gBasisPoint,))
+
+    n_trades = len(trades)
+    if trade_labels is None:
+        trade_labels = [f'trade_{n:03d}' for n in range(n_trades)]
+
+    base_values = {}
+    for trade, trade_label in zip(trades, trade_labels):
+        base_values[trade_label] = trade.value(
+            base_curve._valuation_date, base_curve)
+
+    for shift_idx, shift in enumerate(curve_shifts):
+        fwd_rate_shock = DiscountCurvePWFONF.flat_curve(
+            base_curve._valuation_date, shift)
+        bumped_curve = CompositeDiscountCurve([base_curve, fwd_rate_shock])
+
+        for trade_idx, trade in enumerate(trades):
+            trade_label = trade_labels[trade_idx]
+            bumped_value = trade.value(
+                bumped_curve._valuation_date, bumped_curve)
+            risk_report.loc[shift_idx, PV_PREFIX + trade_label] = bumped_value
+
+    risk_report[PV_PREFIX + 'total'] = risk_report[[PV_PREFIX + t for t in trade_labels]].sum(axis=1)
+    return base_values, risk_report
 
 
 def _grid_from_dates_tenor(grid_last_date, grid_bucket_tenor: Union[str, Tenor], valuation_date):
