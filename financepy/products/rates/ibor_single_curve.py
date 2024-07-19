@@ -62,6 +62,37 @@ def _g(df, *args):
 ###############################################################################
 
 
+def _cost_function(dfs, *args):
+    """ Objective function for fitting all knot dfs at once to the benchmark securities  -- suitable for non-local interpolators"""
+
+#    print("Discount factors:", dfs)
+
+    libor_curve = args[0]
+    valuation_date = libor_curve._valuation_date
+    libor_curve._dfs = dfs
+
+    # For discount that need a fit function, we fit it now
+    libor_curve._interpolator.fit(libor_curve._times, libor_curve._dfs)
+
+    cost = 0.0
+    for depo in libor_curve._usedDeposits:
+        v = depo.value(valuation_date, libor_curve) / depo._notional
+#        print("DEPO:", depo._maturity_date, v)
+        cost += (v-1.0)**2
+
+    for fra in libor_curve._usedFRAs:
+        v = fra.value(valuation_date, libor_curve) / fra._notional
+#        print("FRA:", fra._maturity_date, v)
+        cost += v*v
+
+    for swap in libor_curve._usedSwaps:
+        v = swap.value(valuation_date, libor_curve) / swap._fixed_leg._notional / swap.pv01(valuation_date, libor_curve)
+#        print("SWAP:", swap._maturity_date, v)
+        cost += v*v
+
+    print("Cost:", cost)
+    return cost
+
 ###############################################################################
 
 
@@ -153,7 +184,7 @@ class IborSingleCurve(DiscountCurve):
 
     def _build_curve(self, **kwargs):
         """ 
-        Internal method that actually builds curve based on interpolation. 
+        Build curve based on interpolation. 
 
         Not all interpolators are suitable for the boostrap/1d solver, only those that are local,
         where the value of df[i] does not affect discount factors for t<=t[i-1]
@@ -415,7 +446,7 @@ class IborSingleCurve(DiscountCurve):
 
         if self._check_refit is True:
             # self._check_refits(1e-10, swaptol, 1e-5)
-            self._check_refits(2e-5, 2e-5, 2e-5)
+            self._check_refits(1e-5, 1e-5, 1e-5)
 
 ###############################################################################
 
@@ -480,7 +511,11 @@ class IborSingleCurve(DiscountCurve):
             gridTimes = [tmat]
             gridDfs = [dfMat]
 
-            self._interpolator = Interpolator(self._interp_type, **kwargs)
+        self._interpolator = Interpolator(self._interp_type, **kwargs)
+
+        for depo in self._usedDeposits:
+            tmat = (depo._maturity_date - self._valuation_date) / gDaysInYear
+            gridTimes.append(tmat)
 
             for depo in self._usedDeposits:
                 tmat = (depo._maturity_date -

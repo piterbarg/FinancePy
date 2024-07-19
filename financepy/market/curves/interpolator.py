@@ -397,4 +397,23 @@ class Interpolator():
         else:
             return out
 
+    @classmethod
+    def suitable_for_bootstrap(cls, interpType):
+
+        is_suitable = {
+            InterpTypes.FLAT_FWD_RATES: True,
+            InterpTypes.LINEAR_FWD_RATES: True,
+            InterpTypes.LINEAR_ZERO_RATES: True,
+            InterpTypes.FINCUBIC_ZERO_RATES: False,
+            InterpTypes.NATCUBIC_LOG_DISCOUNT: False,
+            InterpTypes.NATCUBIC_ZERO_RATES: False,
+            InterpTypes.PCHIP_ZERO_RATES: False,
+            InterpTypes.PCHIP_LOG_DISCOUNT: False,
+            InterpTypes.LINEAR_ONFWD_RATES: True,
+            InterpTypes.TENSION_ZERO_RATES: False,
+        }
+
+        return is_suitable[interpType]
+
+
 ###############################################################################
