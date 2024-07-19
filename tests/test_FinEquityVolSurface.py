@@ -70,5 +70,5 @@ def test_equity_vol_surface():
     expiry_dt = expiry_dts[6]
     delta = 0.90
     vol = equitySurface.vol_from_delta_date(delta, expiry_dt)
-    assert round(vol[0], 4) == 0.353 # 0.3498 VP TODO: had to rebase, not sure why. Investigate more
-    assert round(vol[1], 4) == 2190.7766 # 2199.6665 VP TODO: had to rebase, not sure why. Investigate more
+    assert round(vol[0], 4) == 0.3498 # 0.353 # 0.3498 VP TODO: had to rebase, not sure why. Investigate more. Interestingly the original numbers pass on github so restored them
+    assert round(vol[1], 4) == 2199.6665 # 2190.7766 # 2199.6665 VP TODO: had to rebase, not sure why. Investigate more. Interestingly the original numbers pass on github so restored them
