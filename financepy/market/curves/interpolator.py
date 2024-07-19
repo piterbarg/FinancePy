@@ -7,6 +7,7 @@ from numba import njit, float64, int64
 import numpy as np
 from scipy.interpolate import PchipInterpolator
 from scipy.interpolate import CubicSpline
+from scipy.interpolate import InterpolatedUnivariateSpline
 from ...utils.error import FinError
 from ...utils.global_vars import g_small
 
