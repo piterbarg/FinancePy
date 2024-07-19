@@ -89,7 +89,7 @@ def test_dataframe_to_benchmarks():
     df['maturity_date'] = pd.to_datetime(df['maturity_date'], errors='ignore')  # allow tenors
 
     benchmarks = dataframe_to_benchmarks(
-        df, asof_date=asof, cal_type=CalendarTypes.UNITED_KINGDOM)
+        df, asof_date=asof, calendar_type=CalendarTypes.UNITED_KINGDOM)
 
     assert len(benchmarks['IborDeposit']) == 2
     assert len(benchmarks['IborFRA']) == 1
