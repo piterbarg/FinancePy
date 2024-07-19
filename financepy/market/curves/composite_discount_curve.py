@@ -33,12 +33,12 @@ class CompositeDiscountCurve(DiscountCurve):
 
         self._children = child_curves
 
-        self._valuation_date = self._children[0]._valuation_date
-        assert all(c._valuation_date ==
-                   self._valuation_date for c in self._children), 'Child curves must all have the same vlauation date'
+        self.value_dt = self._children[0].value_dt
+        assert all(c.value_dt ==
+                   self.value_dt for c in self._children), 'Child curves must all have the same vlauation date'
 
         # Read off the first child
-        self._day_count_type = self._children[0]._day_count_type
+        self.dc_type = self._children[0].dc_type
 
 
 ###############################################################################

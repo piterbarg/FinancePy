@@ -41,7 +41,7 @@ def test_z_spread_actual_curve():
     fras = bms['IborFRA']
     swaps = bms['IborSwap']
 
-    fras.sort(key=lambda fra: fra._maturity_date)
+    fras.sort(key=lambda fra: fra.maturity_dt)
     libor_curve = IborSingleCurve(valuation_date, depos, fras, swaps, InterpTypes.LINEAR_ZERO_RATES)
 
     return _test_z_spread_for_curve(libor_curve)
@@ -58,12 +58,12 @@ def _test_z_spread_for_curve(base_curve: DiscountCurve):
     for bdfIndex, bondRow in bondDataFrame.iterrows():
         matDatetime = bondRow['maturity']
         maturityDt = from_datetime(matDatetime)
-        issueDt = Date(maturityDt._d, maturityDt._m, 2000)
+        issueDt = Date(maturityDt.d, maturityDt.m, 2000)
         coupon = bondRow['coupon']/100.0
         clean_price = bondRow['mid']
         bond = Bond(issueDt, maturityDt, coupon, freq_type, accrual_type)
-        z_spread = bond.z_spread(base_curve._valuation_date, clean_price, base_curve)
-        asset_swap_spread = bond.asset_swap_spread(base_curve._valuation_date, clean_price, base_curve)
+        z_spread = bond.z_spread(base_curve.value_dt, clean_price, base_curve)
+        asset_swap_spread = bond.asset_swap_spread(base_curve.value_dt, clean_price, base_curve)
         bondDataFrame.loc[bdfIndex, 'z_spread'] = z_spread
         bondDataFrame.loc[bdfIndex, 'asset_swap_spread'] = asset_swap_spread
 

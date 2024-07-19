@@ -10,6 +10,7 @@ from scipy.interpolate import CubicSpline
 from scipy.interpolate import InterpolatedUnivariateSpline
 from ...utils.error import FinError
 from ...utils.global_vars import g_small
+from ...utils.tension_spline import TensionSpline
 
 ###############################################################################
 
@@ -285,7 +286,7 @@ class Interpolator():
             onf_times = []
             onf_rates = []
             prev_df = 1.0
-            for t, df in zip(self._times, self._dfs):
+            for t, df in zip(self.times, self._dfs):
                 if t == 0.0:
                     continue
                 if len(onf_times) == 0:
@@ -313,13 +314,13 @@ class Interpolator():
 
         elif self._interp_type == InterpTypes.TENSION_ZERO_RATES:
             tension_sigma = self._optional_interp_params.get('sigma', 1.0)
-            gSmallVector = np.ones(len(self._times)) * gSmall
-            zero_rates = -np.log(self._dfs) / (self._times + gSmallVector)
+            gSmallVector = np.ones(len(self.times)) * g_small
+            zero_rates = -np.log(self._dfs) / (self.times + gSmallVector)
 
-            if self._times[0] == 0.0:
+            if self.times[0] == 0.0:
                 zero_rates[0] = zero_rates[1]
 
-            self._interp_fn = TensionSpline(self._times, zero_rates, sigma=tension_sigma)
+            self._interp_fn = TensionSpline(self.times, zero_rates, sigma=tension_sigma)
 
     ###########################################################################
 
@@ -371,10 +372,10 @@ class Interpolator():
                 # not enough data was used to fit the curve -- never reached the fitting stage
                 # (not sure why we have if len(times) == 1: return in the fit(...) function but reluctant to change that)
                 # so work around this. already tested that _dfs is not None
-                if len(self._dfs) == 0 or self._times[0] == 0.0:
+                if len(self._dfs) == 0 or self.times[0] == 0.0:
                     out = [1.0]*len(tvec)
                 else:
-                    onf_rate = -np.log(self._dfs[0])/self._times[0]
+                    onf_rate = -np.log(self._dfs[0])/self.times[0]
                     out = np.exp(-onf_rate * tvec)
             else:
                 # apparently UnivariateSpline.integral assumes the function is zero outside the data limits (WHY??????)

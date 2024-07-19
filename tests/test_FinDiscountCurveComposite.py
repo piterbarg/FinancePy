@@ -21,7 +21,7 @@ def test_composite_discount_curve_can_value_trades():
     bump_end_date = Date(6, 10, 2024)
     bump_size = 1.0 * gPercent
     fwd_rate_shock = DiscountCurvePWFONF.brick_wall_curve(
-        base_curve._valuation_date, bump_start_date, bump_end_date, bump_size)
+        base_curve.value_dt, bump_start_date, bump_end_date, bump_size)
     composite_curve = CompositeDiscountCurve([base_curve, fwd_rate_shock])
 
     trade = _create_test_swap(valuation_date)
@@ -46,7 +46,7 @@ def test_zero_bump_has_no_effect_on_base_discount_curve():
     bump_end_date = Date(6, 10, 2024)
     bump_size = 0.0 * gPercent
     fwd_rate_shock = DiscountCurvePWFONF.brick_wall_curve(
-        base_curve._valuation_date, bump_start_date, bump_end_date, bump_size)
+        base_curve.value_dt, bump_start_date, bump_end_date, bump_size)
     composite_curve = CompositeDiscountCurve([base_curve, fwd_rate_shock])
 
     trade = _create_test_swap(valuation_date)
@@ -72,7 +72,7 @@ def test_zero_bump_has_no_effect_on_base_ibor_single_curve():
     bump_end_date = Date(6, 10, 2024)
     bump_size = 0.0 * gPercent
     fwd_rate_shock = DiscountCurvePWFONF.brick_wall_curve(
-        base_curve._valuation_date, bump_start_date, bump_end_date, bump_size)
+        base_curve.value_dt, bump_start_date, bump_end_date, bump_size)
     composite_curve = CompositeDiscountCurve([base_curve, fwd_rate_shock])
 
     trade = _create_test_swap(valuation_date)
@@ -97,7 +97,7 @@ def _create_test_swap(valuation_date):
     fixedFreqType = FrequencyTypes.SEMI_ANNUAL
 
     trade = IborSwap(settlement_date.add_tenor('1Y'), "5Y", swapType, 2.0 * gPercent,
-                     fixedFreqType, fixedDCCType, calendar_type=cal, notional=10000)
+                     fixedFreqType, fixedDCCType, cal_type=cal, notional=10000)
 
     return trade
 

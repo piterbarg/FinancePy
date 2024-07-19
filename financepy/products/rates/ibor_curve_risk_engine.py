@@ -52,7 +52,7 @@ def par_rate_risk_report(base_curve: IborSingleCurve,  trades: list, trade_label
     base_values = {}
     for trade, trade_label in zip(trades, trade_labels):
         base_values[trade_label] = trade.value(
-            base_curve._valuation_date, base_curve)
+            base_curve.value_dt, base_curve)
 
     for benchmark_idx in range(n_benchmarks):
         bumped_curve = curve_shocker.apply_bump_to_benchmark(
@@ -62,7 +62,7 @@ def par_rate_risk_report(base_curve: IborSingleCurve,  trades: list, trade_label
             trade_label = trade_labels[trade_idx]
             base_value = base_values[trade_label]
             bumped_value = trade.value(
-                bumped_curve._valuation_date, bumped_curve)
+                bumped_curve.value_dt, bumped_curve)
             par_delta = (bumped_value - base_value)/bump_size*gBasisPoint
             risk_report.loc[benchmark_idx, trade_label] = par_delta
 
@@ -93,7 +93,7 @@ def forward_rate_risk_report(base_curve: DiscountCurve,
             risk_report is a dataframe with bump details for rows and a column of forward rate deltas per trade, and a total for all trades
 
     """
-    valuation_date = base_curve._valuation_date
+    valuation_date = base_curve.value_dt
     grid, grid_labels = _grid_from_dates_tenor(grid_last_date, grid_bucket_tenor, valuation_date)
 
     base_values, risk_report, *_ = forward_rate_risk_report_custom_grid(
@@ -128,7 +128,7 @@ def forward_rate_risk_report_custom_grid(
     risk_report['maturity_date'] = grid[1:]
     risk_report['type'] = 'IborFRA'
 
-    asof = base_curve._valuation_date
+    asof = base_curve.value_dt
     if grid_labels is None:
         start_in_days = [datediff(asof, d) for d in risk_report['start_date']]
         tenor_in_days = [datediff(s, m) for s, m in zip(risk_report['start_date'], risk_report['maturity_date'])]
@@ -158,14 +158,14 @@ def forward_rate_risk_report_custom_grid(
         risk_report.loc[fwdrate_idx, 'market_rate'] = base_rate
 
         fwd_rate_shock = DiscountCurvePWFONF.brick_wall_curve(
-            base_curve._valuation_date, start_date, maturity_date, bump_size)
+            base_curve.value_dt, start_date, maturity_date, bump_size)
         bumped_curve = CompositeDiscountCurve([base_curve, fwd_rate_shock])
 
         for trade_idx, trade in enumerate(trades):
             trade_label = trade_labels[trade_idx]
             base_value = base_values[trade_label]
             bumped_value = trade.value(
-                bumped_curve._valuation_date, bumped_curve)
+                bumped_curve.value_dt, bumped_curve)
             par_delta = (bumped_value - base_value)/bump_size*gBasisPoint
             risk_report.loc[fwdrate_idx, DV01_PREFIX+trade_label] = par_delta
 
@@ -198,7 +198,7 @@ def carry_rolldown_report(base_curve: DiscountCurve,
             first row and rolldown in all the others
 
     """
-    valuation_date = base_curve._valuation_date
+    valuation_date = base_curve.value_dt
     grid, grid_labels = _grid_from_dates_tenor(grid_last_date, grid_bucket_tenor, valuation_date)
 
     base_values, risk_report, first_period_carry = forward_rate_risk_report_custom_grid(
@@ -230,17 +230,17 @@ def parallel_shift_ladder_report(base_curve: DiscountCurve,
     base_values = {}
     for trade, trade_label in zip(trades, trade_labels):
         base_values[trade_label] = trade.value(
-            base_curve._valuation_date, base_curve)
+            base_curve.value_dt, base_curve)
 
     for shift_idx, shift in enumerate(curve_shifts):
         fwd_rate_shock = DiscountCurvePWFONF.flat_curve(
-            base_curve._valuation_date, shift)
+            base_curve.value_dt, shift)
         bumped_curve = CompositeDiscountCurve([base_curve, fwd_rate_shock])
 
         for trade_idx, trade in enumerate(trades):
             trade_label = trade_labels[trade_idx]
             bumped_value = trade.value(
-                bumped_curve._valuation_date, bumped_curve)
+                bumped_curve.value_dt, bumped_curve)
             risk_report.loc[shift_idx, PV_PREFIX + trade_label] = bumped_value
 
     risk_report[PV_PREFIX + 'total'] = risk_report[[PV_PREFIX + t for t in trade_labels]].sum(axis=1)

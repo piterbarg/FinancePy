@@ -116,7 +116,7 @@ class IborSwap:
         '''
         easy read access to the coupon (fixed rate)
         '''
-        return self._fixed_leg._coupon
+        return self.fixed_leg.cpn
 
     ###########################################################################
 
@@ -125,8 +125,8 @@ class IborSwap:
         Sometimes we need to reset the coupon (fixed rate)
         This function updates caches that depend on it
         '''
-        self._fixed_leg._coupon = new_rate
-        self._fixed_leg.generate_payments()
+        self.fixed_leg.cpn = new_rate
+        self.fixed_leg.generate_payments()
 
     ###########################################################################
 
@@ -155,11 +155,11 @@ class IborSwap:
         if index_curve is None:
             index_curve = discount_curve
 
-        fixed_leg_results = self._fixed_leg.value(value_dt,
+        fixed_leg_results = self.fixed_leg.value(value_dt,
                                                   discount_curve,
                                                   pv_only=pv_only)
 
-        float_leg_results = self._float_leg.value(value_dt,
+        float_leg_results = self.float_leg.value(value_dt,
                                                   discount_curve,
                                                   index_curve,
                                                   first_fixing_rate,
@@ -194,38 +194,38 @@ class IborSwap:
         if index_curve is None:
             index_curve = discount_curve
 
-        fixed_leg_value = self._fixed_leg.value(valuation_date,
+        fixed_leg_value = self.fixed_leg.value(valuation_date,
                                                 discount_curve)
 
-        float_leg_value = self._float_leg.value(valuation_date,
+        float_leg_value = self.float_leg.value(valuation_date,
                                                 discount_curve,
                                                 index_curve,
                                                 firstFixingRate)
 
         value = fixed_leg_value + float_leg_value
-        pv01 = np.abs(fixed_leg_value / self._fixed_leg._coupon / self._fixed_leg._notional)
-        pay_receive_float = -1 if self._float_leg._leg_type == SwapTypes.PAY else 1
-        swap_rate = float_leg_value / self._float_leg._notional / pv01 / pay_receive_float
+        pv01 = np.abs(fixed_leg_value / self.fixed_leg.cpn / self.fixed_leg.notional)
+        pay_receive_float = -1 if self.float_leg.leg_type == SwapTypes.PAY else 1
+        swap_rate = float_leg_value / self.float_leg.notional / pv01 / pay_receive_float
 
         # VP: There is significant amount of confusion here with swap_type vs notional.
-        is_payers = (self._fixed_leg._leg_type == SwapTypes.PAY and self._fixed_leg._notional > 0) or (
-            self._fixed_leg._leg_type == SwapTypes.RECEIVE and self._fixed_leg._notional < 0)
+        is_payers = (self.fixed_leg.leg_type == SwapTypes.PAY and self.fixed_leg.notional > 0) or (
+            self.fixed_leg.leg_type == SwapTypes.RECEIVE and self.fixed_leg.notional < 0)
 
         pvbp_sign = 1 if is_payers else -1
 
         out = {
             'type': type(self).__name__,
-            'start_date': self._effective_date,
-            'maturity_date': self._maturity_date,
-            'day_count_type': self._fixed_leg._day_count_type.name,
-            'fixed_leg_type': self._fixed_leg._leg_type.name,
-            'fixed_freq_type': self._fixed_leg._freq_type.name,
-            'notional': self._fixed_leg._notional,
-            'contract_rate': self._fixed_leg._coupon,
+            'start_date': self.effective_dt,
+            'maturity_date': self.maturity_dt,
+            'day_count_type': self.fixed_leg.dc_type.name,
+            'fixed_leg_type': self.fixed_leg.leg_type.name,
+            'fixed_freq_type': self.fixed_leg.freq_type.name,
+            'notional': self.fixed_leg.notional,
+            'contract_rate': self.fixed_leg.cpn,
             'market_rate': swap_rate,
             'spot_pvbp': pv01*pvbp_sign,
-            'fwd_pvbp': pv01 * pvbp_sign / discount_curve.df(self._effective_date),
-            'unit_value': value/self._fixed_leg._notional,
+            'fwd_pvbp': pv01 * pvbp_sign / discount_curve.df(self.effective_dt),
+            'unit_value': value/self.fixed_leg.notional,
             'value': value,
             # ignoring bus day adj type, calendar, etc for now
         }
@@ -233,7 +233,7 @@ class IborSwap:
 
     ###########################################################################
 
-    def pv01(self, valuation_date, discount_curve):
+    def pv01(self, value_dt, discount_curve):
         """ Calculate the value of 1 basis point coupon on the fixed leg. """
 
         pv = self.fixed_leg.value(value_dt, discount_curve)
@@ -268,8 +268,8 @@ class IborSwap:
         '''
         float_leg_pv = 0.0
 
-        if valuation_date < self._effective_date:
-            df0 = discount_curve.df(self._effective_date)
+        if valuation_date < self.effective_dt:
+            df0 = discount_curve.df(self.effective_dt)
         else:
             df0 = discount_curve.df(value_dt)
 
@@ -283,18 +283,18 @@ class IborSwap:
                                                 index_curve,
                                                 first_fixing)
 
-            float_leg_pv /= self._fixed_leg._notional
+            float_leg_pv /= self.fixed_leg.notional
         '''
         # VP: this is more consistent with value(..):
-        float_leg_pv = self._float_leg.value(value_dt,
+        float_leg_pv = self.float_leg.value(value_dt,
                                              discount_curve,
                                              index_curve,
                                              first_fixing)
 
-        float_leg_pv /= self._float_leg._notional
+        float_leg_pv /= self.float_leg.notional
 
         # Make sure we get the sign right
-        if self._float_leg._leg_type == SwapTypes.PAY:
+        if self.float_leg.leg_type == SwapTypes.PAY:
             float_leg_pv = -float_leg_pv
 
         cpn = float_leg_pv / pv01

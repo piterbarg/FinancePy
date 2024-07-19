@@ -394,7 +394,7 @@ class Date():
 ###########################################################################
 
     def __hash__(self):
-        return hash(self._excel_date)
+        return hash(self.excel_dt)
 
     ###########################################################################
 
@@ -780,9 +780,9 @@ class Date():
 
         new_dts = []
 
-        for tenStr in tenor:
-            tenor_obj = Tenor.as_tenor(str_or_tenor=tenStr)
-            new_dt = Date(self._d, self._m, self._y)
+        for ten_str in tenor:
+            tenor_obj = Tenor.as_tenor(str_or_tenor=ten_str)
+            new_dt = Date(self.d, self.m, self.y)
 
             if tenor_obj._units == TenorUnit.DAYS:
                 for _ in range(0, abs(tenor_obj._num_periods)):

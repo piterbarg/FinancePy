@@ -8,7 +8,7 @@ from scipy import interpolate
 
 from ...utils.date import Date
 from ...utils.error import FinError
-from ...utils.global_vars import gSmall, gBasisPoint
+from ...utils.global_vars import g_small, gBasisPoint
 from ...utils.math import test_monotonicity
 from ...utils.frequency import FrequencyTypes
 from ...utils.helpers import label_to_string
@@ -27,7 +27,7 @@ class DiscountCurvePWFONF(DiscountCurve):
     continuous. The class inherits methods from DiscountCurve. """
 
     def __init__(self,
-                 valuation_date: Date,
+                 value_dt: Date,
                  knot_dates: list,
                  onfwd_rates: Union[list, np.ndarray]):
         """ 
@@ -38,7 +38,7 @@ class DiscountCurvePWFONF(DiscountCurve):
 
         check_argument_types(self.__init__, locals())
 
-        self._valuation_date = valuation_date
+        self.value_dt = value_dt
 
         if len(knot_dates) != len(onfwd_rates):
             raise FinError("Dates and rates vectors must have same length")
@@ -46,14 +46,14 @@ class DiscountCurvePWFONF(DiscountCurve):
         if len(knot_dates) == 0:
             raise FinError("Dates vector must have length > 0")
 
-        self._knot_dates = [max(d, valuation_date) for d in knot_dates]
+        self._knot_dates = [max(d, value_dt) for d in knot_dates]
         self._onfwd_rates = np.atleast_1d(onfwd_rates)
 
         self._freq_type = FrequencyTypes.CONTINUOUS
         self._day_count_type = DayCountTypes.SIMPLE
 
         dc_times = times_from_dates(self._knot_dates,
-                                    self._valuation_date,
+                                    self.value_dt,
                                     self._day_count_type)
 
         self._times = np.atleast_1d(dc_times)
@@ -107,7 +107,7 @@ class DiscountCurvePWFONF(DiscountCurve):
         if np.any(times < 0.0):
             raise FinError("All times must be positive")
 
-        times = np.maximum(times, gSmall)
+        times = np.maximum(times, g_small)
         ldfs = self._logdfs_interp(times)
         zero_rates = -ldfs/times
         return zero_rates
@@ -123,7 +123,7 @@ class DiscountCurvePWFONF(DiscountCurve):
 
         zero_rates = self._zero_rate(t)
 
-        df = self._zero_to_df(self._valuation_date,
+        df = self._zero_to_df(self.value_dt,
                               zero_rates,
                               t,
                               self._freq_type,

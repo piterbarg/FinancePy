@@ -37,14 +37,11 @@ from ...utils.calendar import DateGenRuleTypes
 from ...utils.helpers import label_to_string, check_argument_types
 from ...utils.math import npv
 from ...market.curves.discount_curve import DiscountCurve
-<<<<<<< HEAD
 from ...market.curves.interpolator import InterpTypes
 from .bond_zero_curve import BondZeroCurve
-=======
 from ...market.curves.discount_curve_pwf_onf import DiscountCurvePWFONF
 from ...market.curves.composite_discount_curve import CompositeDiscountCurve
 
->>>>>>> 49c15a58 (* add z-spread calcs to bonds, and a test)
 
 # References https://www.dmo.gov.uk/media/15011/yldeqns_v1.pdf
 # DO TRUE YIELD
@@ -831,14 +828,14 @@ class Bond:
         """ Calculate the z-spread of the bond. The discount curve
         is a Ibor curve that is passed in.  """
 
-        self.calc_accrued_interest(settlement_date)
-        accrued_amount = self._accrued_interest * self._par / self._face_amount
+        self.accrued_int = self.accrued_interest(settlement_date, 1.0)
+        accrued_amount = self.accrued_int * self.par 
         bondPrice = clean_price + accrued_amount
 
         def _bond_price_diff_from_z_spread(z_spr_try):
             flat_curve = DiscountCurvePWFONF.flat_curve(settlement_date, z_spr_try)
             bumped_curve = CompositeDiscountCurve([discount_curve, flat_curve])
-            curve_bond_price = self.full_price_from_discount_curve(settlement_date, bumped_curve)
+            curve_bond_price = self.dirty_price_from_discount_curve(settlement_date, bumped_curve)
             return curve_bond_price - bondPrice
 
         z_spread = optimize.newton(_bond_price_diff_from_z_spread,

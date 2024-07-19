@@ -129,31 +129,31 @@ class IborDeposit:
 
         TODO: make a test of this
         """
-        if valuation_date > self._maturity_date:
+        if valuation_date > self.maturity_dt:
             raise FinError("Start date after maturity date")
 
-        dc = DayCount(self._day_count_type)
-        acc_factor = dc.year_frac(self._start_date, self._maturity_date)[0]
-        df_settle = discount_curve.df(self._start_date)
-        df_maturity = discount_curve.df(self._maturity_date)
+        dc = DayCount(self.dc_type)
+        acc_factor = dc.year_frac(self.start_dt, self.maturity_dt)[0]
+        df_settle = discount_curve.df(self.start_dt)
+        df_maturity = discount_curve.df(self.maturity_dt)
 
-        value = (1.0 + acc_factor * self._deposit_rate) * self._notional
+        value = (1.0 + acc_factor * self.deposit_rate) * self.notional
 
         # Need to take into account spot days being zero so depo settling fwd
         value = value * df_maturity / df_settle  # VP: ??? this looks like a start_date - forward value? not spot value? why?
 
         out = {
             'type': type(self).__name__,
-            'start_date': self._start_date,
-            'maturity_date': self._maturity_date,
-            'day_count_type': self._day_count_type.name,
-            'notional': self._notional,
-            'contract_rate': self._deposit_rate,
+            'start_date': self.start_dt,
+            'maturity_date': self.maturity_dt,
+            'day_count_type': self.dc_type.name,
+            'notional': self.notional,
+            'contract_rate': self.deposit_rate,
             'market_rate': (df_settle / df_maturity - 1)/acc_factor,
             # for depo pvbp is actually negative: rates up, value down. but probably makes sense to report as positive, asif for a spot-starting fra
             'spot_pvbp': acc_factor * df_maturity,
             'fwd_pvbp': acc_factor * df_maturity/df_settle,
-            'unit_value': value/self._notional,
+            'unit_value': value/self.notional,
             'value': value,
             # ignoring bus day adj type, calendar for now
         }

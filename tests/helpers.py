@@ -634,7 +634,7 @@ def buildIborSingleCurve(value_dt, last_tenor='51Y'):
     ########################################
 
     last_maturity_date = settle_dt.add_tenor(last_tenor)
-    swaps_to_use = [s for s in swaps if s._fixed_leg._maturity_date <= last_maturity_date]
+    swaps_to_use = [s for s in swaps if s.fixed_leg.maturity_dt <= last_maturity_date]
 
     libor_curve = IborSingleCurve(value_dt, depos, fras, swaps_to_use)
 

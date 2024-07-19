@@ -49,9 +49,9 @@ def ibor_benchmarks_report(iborCurve: IborSingleCurve, include_objects=False):
     Various useful information is reported. This is a bit slow so do not use in performance-critical spots
     '''
 
-    benchmarks = iborCurve._usedDeposits + iborCurve._usedFRAs + iborCurve._usedSwaps
+    benchmarks = iborCurve.used_deposits + iborCurve.used_fras + iborCurve.used_swaps
     return benchmarks_report(benchmarks,
-                             iborCurve._valuation_date, iborCurve, include_objects=include_objects)
+                             iborCurve.value_dt, iborCurve, include_objects=include_objects)
 
 
 def _date_or_tenor_to_date(
@@ -81,39 +81,39 @@ def _date_or_tenor_to_date_or_tenor(
 def _deposit_from_df_row(
         row: pd.Series, asof_date: Date, calendar_type: CalendarTypes):
     cls = globals()[row['type']]
-    return cls(start_date=_date_or_tenor_to_date(row['start_date'], asof_date),
-               maturity_date_or_tenor=_date_or_tenor_to_date_or_tenor(row['maturity_date']),
+    return cls(start_dt=_date_or_tenor_to_date(row['start_date'], asof_date),
+               maturity_dt_or_tenor=_date_or_tenor_to_date_or_tenor(row['maturity_date']),
                deposit_rate=row['contract_rate'],
-               day_count_type=DayCountTypes[row['day_count_type']],
+               dc_type=DayCountTypes[row['day_count_type']],
                notional=row['notional'],
-               calendar_type=calendar_type,
+               cal_type=calendar_type,
                )
 
 
 def _fra_from_df_row(
         row: pd.Series, asof_date: Date, calendar_type: CalendarTypes):
     cls = globals()[row['type']]
-    return cls(start_date=_date_or_tenor_to_date(row['start_date'], asof_date),
-               maturity_date_or_tenor=_date_or_tenor_to_date_or_tenor(row['maturity_date']),
-               fraRate=row['contract_rate'],
-               day_count_type=DayCountTypes[row['day_count_type']],
+    return cls(start_dt=_date_or_tenor_to_date(row['start_date'], asof_date),
+               maturity_dt_or_tenor=_date_or_tenor_to_date_or_tenor(row['maturity_date']),
+               fra_rate=row['contract_rate'],
+               dc_type=DayCountTypes[row['day_count_type']],
                notional=row['notional'],
-               payFixedRate=SwapTypes[row['fixed_leg_type']] == SwapTypes.PAY,
-               calendar_type=calendar_type,
+               pay_fixed_rate=SwapTypes[row['fixed_leg_type']] == SwapTypes.PAY,
+               cal_type=calendar_type,
                )
 
 
 def _swap_from_df_row(
         row: pd.Series, asof_date: Date, calendar_type: CalendarTypes):
     cls = globals()[row['type']]
-    return cls(effective_date=_date_or_tenor_to_date(row['start_date'], asof_date),
-               termination_date_or_tenor=_date_or_tenor_to_date_or_tenor(row['maturity_date']),
+    return cls(effective_dt=_date_or_tenor_to_date(row['start_date'], asof_date),
+               term_dt_or_tenor=_date_or_tenor_to_date_or_tenor(row['maturity_date']),
                fixed_leg_type=SwapTypes[row['fixed_leg_type']],
-               fixed_coupon=row['contract_rate'],
+               fixed_cpn=row['contract_rate'],
                fixed_freq_type=FrequencyTypes[row['fixed_freq_type']],
-               fixed_day_count_type=DayCountTypes[row['day_count_type']],
+               fixed_dc_type=DayCountTypes[row['day_count_type']],
                notional=row['notional'],
-               calendar_type=calendar_type,
+               cal_type=calendar_type,
                )
 
 

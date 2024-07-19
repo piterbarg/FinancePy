@@ -206,16 +206,16 @@ class SwapFixedLeg:
             pd.DataFrame: cashflow values and related data
         """
 
-        leg_type_sign = -1 if self._leg_type == SwapTypes.PAY else 1
+        leg_type_sign = -1 if self.leg_type == SwapTypes.PAY else 1
         df = pd.DataFrame()
-        df['payment_date'] = self._payment_dates
-        df['start_accrual_date'] = self._startAccruedDates
-        df['end_accrual_date'] = self._endAccruedDates
-        df['year_frac'] = self._year_fracs
-        df['rate'] = self._coupon
-        df['payment'] = np.array(self._payments) * leg_type_sign
-        df['payment_df'] = self._paymentDfs
-        df['payment_pv'] = np.array(self._paymentPVs) * leg_type_sign
+        df['payment_date'] = self.payment_dts
+        df['start_accrual_date'] = self.start_accrued_dts
+        df['end_accrual_date'] = self.end_accrued_dts
+        df['year_frac'] = self.year_fracs
+        df['rate'] = self.cpn
+        df['payment'] = np.array(self.payments) * leg_type_sign
+        df['payment_df'] = self.payment_dfs
+        df['payment_pv'] = np.array(self.payment_pvs) * leg_type_sign
         df['leg'] = 'FIXED'
 
         return df

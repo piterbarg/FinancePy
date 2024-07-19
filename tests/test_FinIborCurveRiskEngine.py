@@ -61,10 +61,10 @@ def test_par_rate_risk_report_cubic_zero():
 def test_par_rate_risk_report_flat_forward():
     valuation_date = Date(6, 10, 2022)
     base_curve = buildIborSingleCurve(valuation_date, '10Y')
-    settlement_date = base_curve._usedSwaps[0]._effective_date
-    cal = base_curve._usedSwaps[0]._fixed_leg._calendar_type
-    fixed_day_count = base_curve._usedSwaps[0]._fixed_leg._day_count_type
-    fixed_freq_type = base_curve._usedSwaps[0]._fixed_leg._freq_type
+    settlement_date = base_curve.used_swaps[0].effective_dt
+    cal = base_curve.used_swaps[0].fixed_leg.cal_type
+    fixed_day_count = base_curve.used_swaps[0].fixed_leg.dc_type
+    fixed_freq_type = base_curve.used_swaps[0].fixed_leg.freq_type
 
     trades = _generate_trades(valuation_date, cal, SwapTypes.PAY,
                               fixed_day_count, fixed_freq_type, settlement_date, base_curve)
@@ -110,7 +110,7 @@ def test_forward_rate_risk_report():
 
     # the grid on which we generate the risk report
     grid_bucket = '3M'
-    grid_last_date = max(t._maturity_date for t in trades)
+    grid_last_date = max(t.maturity_dt for t in trades)
 
     # size of bump to apply. In all cases par risk is reported as change in value to 1 bp rate bump
     forward_rate_bump = 1*gBasisPoint
@@ -194,7 +194,7 @@ def test_carry_rolldown_report():
 
     # the grid on which we generate the risk report
     grid_bucket = '6M'
-    grid_last_date = max(t._maturity_date for t in trades)
+    grid_last_date = max(t.maturity_dt for t in trades)
 
     # run the report
     base_values, risk_report, *_ = re.carry_rolldown_report(
@@ -262,11 +262,11 @@ def test_parallel_shift_ladder_report():
 
 def _generate_trades(valuation_date, cal, swapType, fixedDCCType, fixedFreqType, settlement_date, base_curve):
     trade1 = IborSwap(settlement_date, "4Y", swapType, 4.20 /
-                      100.0, fixedFreqType, fixedDCCType, calendar_type=cal, notional=10000)
+                      100.0, fixedFreqType, fixedDCCType, cal_type=cal, notional=10000)
     atm = trade1.swap_rate(valuation_date, base_curve)
     trade1.set_fixed_rate(atm)
     trade2 = IborSwap(settlement_date.add_tenor('6M'), "2Y", swapType,
-                      4.20/100.0, fixedFreqType, fixedDCCType, calendar_type=cal, notional=10000)
+                      4.20/100.0, fixedFreqType, fixedDCCType, cal_type=cal, notional=10000)
     atm = trade2.swap_rate(valuation_date, base_curve)
     trade2.set_fixed_rate(atm)
     trades = [trade1, trade2]
@@ -278,29 +278,29 @@ def _generate_base_curve(valuation_date, cal, interp_type, depoDCCType, fraDCCTy
     spot_days = 2
     settlement_date = valuation_date.add_weekdays(spot_days)
     depo = IborDeposit(settlement_date, "3M", 4.2/100.0,
-                       depoDCCType, calendar_type=cal)
+                       depoDCCType, cal_type=cal)
     depos.append(depo)
 
     fras = []
     fra = IborFRA(settlement_date.add_tenor("3M"), "3M",
-                  4.20/100.0, fraDCCType, calendar_type=cal)
+                  4.20/100.0, fraDCCType, cal_type=cal)
     fras.append(fra)
 
     swaps = []
     swap = IborSwap(settlement_date, "1Y", swapType, 4.20/100.0,
-                    fixedFreqType, fixedDCCType, calendar_type=cal)
+                    fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
     swap = IborSwap(settlement_date, "2Y", swapType, 4.30/100.0,
-                    fixedFreqType, fixedDCCType, calendar_type=cal)
+                    fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
     swap = IborSwap(settlement_date, "3Y", swapType, 4.70/100.0,
-                    fixedFreqType, fixedDCCType, calendar_type=cal)
+                    fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
     swap = IborSwap(settlement_date, "5Y", swapType, 4.70/100.0,
-                    fixedFreqType, fixedDCCType, calendar_type=cal)
+                    fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
     swap = IborSwap(settlement_date, "7Y", swapType, 4.70/100.0,
-                    fixedFreqType, fixedDCCType, calendar_type=cal)
+                    fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
 
     base_curve = IborSingleCurve(
@@ -310,8 +310,8 @@ def _generate_base_curve(valuation_date, cal, interp_type, depoDCCType, fraDCCTy
 
 
 if DIAGNOSTICS_MODE and __name__ == '__main__':
-    # test_par_rate_risk_report_cubic_zero()
+    test_par_rate_risk_report_cubic_zero()
     # test_forward_rate_risk_report()
     # test_forward_rate_custom_grid_risk_report()
     # test_carry_rolldown_report()
-    test_parallel_shift_ladder_report()
+    # test_parallel_shift_ladder_report()

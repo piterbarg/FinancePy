@@ -40,19 +40,19 @@ class IborSingleCurveSmoothingCalibrator(object):
         c = self._curve
 
         dates = []
-        dates.append(self._curve._valuation_date)
+        dates.append(self._curve.value_dt)
 
-        for depo in c._usedDeposits:
-            dates.append(depo._start_date)
-            dates.append(depo._maturity_date)
+        for depo in c.used_deposits:
+            dates.append(depo.start_dt)
+            dates.append(depo.maturity_dt)
 
-        for fra in c._usedFRAs:
-            dates.append(fra._start_date)
-            dates.append(fra._maturity_date)
+        for fra in c.used_fras:
+            dates.append(fra.start_dt)
+            dates.append(fra.maturity_dt)
 
-        for swap in c._usedSwaps:
-            dates.extend(swap._fixed_leg._payment_dates)
-            dates.append(swap._maturity_date)
+        for swap in c.used_swaps:
+            dates.extend(swap.fixed_leg.payment_dts)
+            dates.append(swap.maturity_dt)
 
         # remove duplicates
         dates = list(set(dates))
@@ -67,30 +67,30 @@ class IborSingleCurveSmoothingCalibrator(object):
         else:
             curve = self._curve
 
-        valuation_date = curve._valuation_date
-        out = np.zeros(len(curve._usedDeposits) +
-                       len(curve._usedFRAs) + len(curve._usedSwaps))
+        valuation_date = curve.value_dt
+        out = np.zeros(len(curve.used_deposits) +
+                       len(curve.used_fras) + len(curve.used_swaps))
 
         idx = 0
-        for depo in curve._usedDeposits:
+        for depo in curve.used_deposits:
             # do not need to be too exact here
-            acc_factor = datediff(depo._start_date, depo._maturity_date)
+            acc_factor = datediff(depo.start_dt, depo.maturity_dt)
             # as rate
             r = -np.log(depo.value(valuation_date, curve) /
-                        depo._notional)/acc_factor
+                        depo.notional)/acc_factor
             out[idx] = r
             idx = idx + 1
 
-        for fra in curve._usedFRAs:
+        for fra in curve.used_fras:
             # do not need to be too exact here
-            acc_factor = datediff(fra._start_date, fra._maturity_date)
+            acc_factor = datediff(fra.start_dt, fra.maturity_dt)
             v = fra.value(valuation_date, curve) / \
-                fra._notional/acc_factor
+                fra.notional/acc_factor
             out[idx] = v
             idx = idx + 1
 
-        for swap in curve._usedSwaps:
-            v = swap.value(valuation_date, curve) / swap._fixed_leg._notional / \
+        for swap in curve.used_swaps:
+            v = swap.value(valuation_date, curve) / swap.fixed_leg.notional / \
                 swap.pv01(valuation_date, curve)
             out[idx] = v
             idx = idx + 1
@@ -188,7 +188,7 @@ class IborSingleCurveSmoothingCalibrator(object):
         # decorate df2 with extra info
         df2['type'] = 'd2yield_dt2'
         df2['start_date'] = self._knot_dates[1:-1]
-        df2['maturity_date'] = self._knot_dates[2:]
+        df2['maturity_dt'] = self._knot_dates[2:]
 
         df = pd.concat((df1, df2), axis=0, sort=False).reset_index(drop=True)
         df['smoothness'] = smoothness

@@ -26,12 +26,12 @@ def test_ibor_benchmarks_report():
     depos = []
     spot_days = 2
     settlement_date = valuation_date.add_weekdays(spot_days)
-    depo = IborDeposit(settlement_date, "3M", 4.2/100.0, depoDCCType, calendar_type=cal)
+    depo = IborDeposit(settlement_date, "3M", 4.2/100.0, depoDCCType, cal_type=cal)
     depos.append(depo)
 
     fraDCCType = DayCountTypes.ACT_360
     fras = []
-    fra = IborFRA(settlement_date.add_tenor("3M"), "3M", 4.20/100.0, fraDCCType, calendar_type=cal)
+    fra = IborFRA(settlement_date.add_tenor("3M"), "3M", 4.20/100.0, fraDCCType, cal_type=cal)
     fras.append(fra)
 
     swaps = []
@@ -39,25 +39,25 @@ def test_ibor_benchmarks_report():
     fixedDCCType = DayCountTypes.THIRTY_E_360_ISDA
     fixedFreqType = FrequencyTypes.SEMI_ANNUAL
 
-    swap = IborSwap(settlement_date, "1Y", swapType, 4.20/100.0, fixedFreqType, fixedDCCType, calendar_type=cal)
+    swap = IborSwap(settlement_date, "1Y", swapType, 4.20/100.0, fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
-    swap = IborSwap(settlement_date, "2Y", swapType, 4.30/100.0, fixedFreqType, fixedDCCType, calendar_type=cal)
+    swap = IborSwap(settlement_date, "2Y", swapType, 4.30/100.0, fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
-    swap = IborSwap(settlement_date, "3Y", swapType, 4.70/100.0, fixedFreqType, fixedDCCType, calendar_type=cal)
+    swap = IborSwap(settlement_date, "3Y", swapType, 4.70/100.0, fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
-    swap = IborSwap(settlement_date, "5Y", swapType, 5.40/100.0, fixedFreqType, fixedDCCType, calendar_type=cal)
+    swap = IborSwap(settlement_date, "5Y", swapType, 5.40/100.0, fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
-    swap = IborSwap(settlement_date, "7Y", swapType, 5.70/100.0, fixedFreqType, fixedDCCType, calendar_type=cal)
+    swap = IborSwap(settlement_date, "7Y", swapType, 5.70/100.0, fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
-    swap = IborSwap(settlement_date, "10Y", swapType, 6.00/100.0, fixedFreqType, fixedDCCType, calendar_type=cal)
+    swap = IborSwap(settlement_date, "10Y", swapType, 6.00/100.0, fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
-    swap = IborSwap(settlement_date, "12Y", swapType, 6.10/100.0, fixedFreqType, fixedDCCType, calendar_type=cal)
+    swap = IborSwap(settlement_date, "12Y", swapType, 6.10/100.0, fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
-    swap = IborSwap(settlement_date, "15Y", swapType, 5.90/100.0, fixedFreqType, fixedDCCType, calendar_type=cal)
+    swap = IborSwap(settlement_date, "15Y", swapType, 5.90/100.0, fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
-    swap = IborSwap(settlement_date, "20Y", swapType, 5.60/100.0, fixedFreqType, fixedDCCType, calendar_type=cal)
+    swap = IborSwap(settlement_date, "20Y", swapType, 5.60/100.0, fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
-    swap = IborSwap(settlement_date, "25Y", swapType, 5.55/100.0, fixedFreqType, fixedDCCType, calendar_type=cal)
+    swap = IborSwap(settlement_date, "25Y", swapType, 5.55/100.0, fixedFreqType, fixedDCCType, cal_type=cal)
     swaps.append(swap)
 
     # Create but do not build the initial curve
@@ -89,7 +89,7 @@ def test_dataframe_to_benchmarks():
     df['maturity_date'] = pd.to_datetime(df['maturity_date'], errors='ignore')  # allow tenors
 
     benchmarks = dataframe_to_benchmarks(
-        df, asof_date=asof, calendar_type=CalendarTypes.UNITED_KINGDOM)
+        df, asof_date=asof, cal_type=CalendarTypes.UNITED_KINGDOM)
 
     assert len(benchmarks['IborDeposit']) == 2
     assert len(benchmarks['IborFRA']) == 1

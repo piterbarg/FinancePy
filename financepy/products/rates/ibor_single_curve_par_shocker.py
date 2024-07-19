@@ -60,10 +60,10 @@ class IborSingleCurveParShocker:
         for benchmark, bump_size in zip(self._benchmarks_report['benchmark_objects'].values, bump_sizes):
             bumped_benchmark = copy.deepcopy(benchmark)
             if isinstance(bumped_benchmark, IborDeposit):
-                bumped_benchmark._deposit_rate += bump_size
+                bumped_benchmark.deposit_rate += bump_size
                 bumped_depos.append(bumped_benchmark)
             if isinstance(bumped_benchmark, IborFRA):
-                bumped_benchmark._fraRate += bump_size
+                bumped_benchmark.fra_rate += bump_size
                 bumped_fras.append(bumped_benchmark)
             if isinstance(bumped_benchmark, IborSwap):
                 bumped_benchmark.set_fixed_rate(bumped_benchmark.get_fixed_rate() + bump_size)
@@ -75,7 +75,7 @@ class IborSingleCurveParShocker:
         # idea anyway). But in the future we should keep track of what exactly we used to build
         # the base curve and use the same method here
         bumped_curve = IborSingleCurve(
-            self._base_curve._valuation_date,
+            self._base_curve.value_dt,
             bumped_depos,
             bumped_fras,
             bumped_swaps,

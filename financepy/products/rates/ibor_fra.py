@@ -118,12 +118,12 @@ class IborFRA:
             return v
         else:
             df = pd.DataFrame(index=[0])
-            df['payment_date'] = self._maturity_date
-            df['start_accrual_date'] = self._start_date
-            df['end_accrual_date'] = self._maturity_date
+            df['payment_date'] = self.maturity_dt
+            df['start_accrual_date'] = self.start_dt
+            df['end_accrual_date'] = self.maturity_dt
             df['year_frac'] = self.acc_factor
-            df['rate'] = libor_fwd - self._fraRate
-            df['payment'] = pay_fixed_sign * acc_factor * (libor_fwd - self._fraRate) * self._notional
+            df['rate'] = libor_fwd - self.fra_rate
+            df['payment'] = pay_fixed_sign * acc_factor * (libor_fwd - self.fra_rate) * self.notional
             df['payment_df'] = df_mat / df_value
             df['payment_pv'] = v
             df['leg'] = 'FRA'
@@ -148,36 +148,36 @@ class IborFRA:
             index_curve = discount_curve
 
         # Get the Libor index from the index curve
-        dc = DayCount(self._day_count_type)
-        acc_factor = dc.year_frac(self._start_date, self._maturity_date)[0]
-        dfIndex1 = index_curve.df(self._start_date)
-        dfIndex2 = index_curve.df(self._maturity_date)
+        dc = DayCount(self.dc_type)
+        acc_factor = dc.year_frac(self.start_dt, self.maturity_dt)[0]
+        dfIndex1 = index_curve.df(self.start_dt)
+        dfIndex2 = index_curve.df(self.maturity_dt)
         liborFwd = (dfIndex1 / dfIndex2 - 1.0) / acc_factor
 
         # Get the discount factor from a discount curve
-        dfDiscount2 = discount_curve.df(self._maturity_date)
+        dfDiscount2 = discount_curve.df(self.maturity_dt)
 
-        v = acc_factor * (liborFwd - self._fraRate) * dfDiscount2
+        v = acc_factor * (liborFwd - self.fra_rate) * dfDiscount2
 
         # Forward value the FRA to the value date
         df_to_valuation_date = discount_curve.df(valuation_date)
-        v = v * self._notional / df_to_valuation_date
+        v = v * self.notional / df_to_valuation_date
 
-        if self._payFixedRate is True:  # VP: ??? pay fixed should be positive notional
+        if self.pay_fixed_rate is True:  # VP: ??? pay fixed should be positive notional
             v *= -1.0
 
         out = {
             'type': type(self).__name__,
-            'start_date': self._start_date,
-            'maturity_date': self._maturity_date,
-            'day_count_type': self._day_count_type.name,
-            'fixed_leg_type': SwapTypes.PAY.name if self._payFixedRate else SwapTypes.RECEIVE.name,
-            'notional': self._notional,
-            'contract_rate': self._fraRate,
+            'start_date': self.start_dt,
+            'maturity_date': self.maturity_dt,
+            'day_count_type': self.dc_type.name,
+            'fixed_leg_type': SwapTypes.PAY.name if self.pay_fixed_rate else SwapTypes.RECEIVE.name,
+            'notional': self.notional,
+            'contract_rate': self.fra_rate,
             'market_rate': liborFwd,
             'spot_pvbp': acc_factor * dfDiscount2,
-            'fwd_pvbp': acc_factor * dfDiscount2/discount_curve.df(self._start_date),
-            'unit_value': acc_factor * dfDiscount2 * (liborFwd - self._fraRate),
+            'fwd_pvbp': acc_factor * dfDiscount2/discount_curve.df(self.start_dt),
+            'unit_value': acc_factor * dfDiscount2 * (liborFwd - self.fra_rate),
             'value': v,
             # ignoring pay_fixed flag (which is wrong anyway I think),
             # bus day adj type, calendar for now
